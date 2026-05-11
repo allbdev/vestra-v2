@@ -1,0 +1,53 @@
+/* Vestra design tokens. Light + dark themes via .dark class on <html>. */
+@layer base {
+  :root {
+    --background: hsl(0 0% 100%);
+    --foreground: hsl(240 10% 4%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(240 10% 4%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(240 10% 4%);
+    --primary: hsl(142 71% 45%);
+    --primary-foreground: hsl(0 0% 100%);
+    --secondary: hsl(217 91% 60%);
+    --secondary-foreground: hsl(0 0% 100%);
+    --muted: hsl(240 5% 96%);
+    --muted-foreground: hsl(240 4% 46%);
+    --accent: hsl(142 71% 45% / 0.1);
+    --accent-foreground: hsl(142 71% 35%);
+    --destructive: hsl(0 84% 60%);
+    --destructive-foreground: hsl(0 0% 100%);
+    --success: hsl(142 71% 45%);
+    --warning: hsl(38 92% 50%);
+    --info: hsl(217 91% 60%);
+    --border: hsl(240 6% 90%);
+    --input: hsl(240 6% 90%);
+    --ring: hsl(142 71% 45%);
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: hsl(240 8% 5%);
+    --foreground: hsl(240 5% 96%);
+    --card: hsl(240 6% 9%);
+    --card-foreground: hsl(240 5% 96%);
+    --popover: hsl(240 6% 9%);
+    --popover-foreground: hsl(240 5% 96%);
+    --primary: hsl(142 71% 45%);
+    --primary-foreground: hsl(0 0% 0%);
+    --secondary: hsl(217 91% 60%);
+    --secondary-foreground: hsl(0 0% 100%);
+    --muted: hsl(240 5% 14%);
+    --muted-foreground: hsl(240 5% 64%);
+    --accent: hsl(142 71% 45% / 0.15);
+    --accent-foreground: hsl(142 71% 65%);
+    --destructive: hsl(0 72% 51%);
+    --destructive-foreground: hsl(0 0% 100%);
+    --success: hsl(142 71% 45%);
+    --warning: hsl(38 92% 50%);
+    --info: hsl(217 91% 60%);
+    --border: hsl(240 5% 18%);
+    --input: hsl(240 5% 18%);
+    --ring: hsl(142 71% 45%);
+  }
+}

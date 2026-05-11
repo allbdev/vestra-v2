@@ -6,7 +6,7 @@ export interface DateDisplayProps {
 
 /**
  * UTC-based date formatter. Avoids TZ drift on `@db.Date` columns
- * (e.g. "2026-01-30T00:00:00.000Z" -> 30/01/2026 regardless of viewer TZ).
+ * ("2026-01-30T00:00:00.000Z" -> 30/01/2026 regardless of viewer TZ).
  */
 export function DateDisplay({ date, locale = "pt-BR", className }: DateDisplayProps) {
   const d = new Date(date);
@@ -14,9 +14,8 @@ export function DateDisplay({ date, locale = "pt-BR", className }: DateDisplayPr
   const month = String(d.getUTCMonth() + 1).padStart(2, "0");
   const year = d.getUTCFullYear();
 
-  const formatted = locale === "pt-BR"
-    ? `${day}/${month}/${year}`
-    : `${year}-${month}-${day}`;
+  const formatted =
+    locale === "pt-BR" ? `${day}/${month}/${year}` : `${year}-${month}-${day}`;
 
   return <span className={className}>{formatted}</span>;
 }

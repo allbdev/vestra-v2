@@ -41,17 +41,106 @@ vestra/
 **Per-app responsibilities:**
 
 - `apps/api` (NestJS): owns all DB writes/reads, auth (JWT + bcryptjs), email (resend), business rules (subscription gating, workspace permissions, recurring transaction cron via `@nestjs/schedule`), DTO validation (class-validator). Exposes REST under `/api/v1`. Replaces `vestra_old/app/api/cron/transactions` and all `vestra_old/app/actions/*`.
-- `apps/dashboard` (Vite + React 19): authed UI. TanStack Query for server state, react-router-dom v6+, react-hook-form + yup, MUI + emotion, recharts. No SSR. Builds to static assets served by any CDN.
-- `apps/marketing` (Next.js 16): static-first marketing pages. Contact form `POST`s to api. Lightweight — no auth.
+- `apps/dashboard` (Vite + React 19): authed UI. **Mobile-first PWA**. Bottom tab bar nav on mobile, adaptive sidebar on `lg+`. TanStack Query for server state, react-router-dom v7+, react-hook-form + yup, **shadcn/ui + Tailwind 4 + Radix primitives**, lucide-react icons, recharts, axios, `vite-plugin-pwa`, framer-motion for micro-interactions. No SSR. Static build, CDN-friendly.
+- `apps/marketing` (Next.js 16): static-first marketing pages. **Mobile-first**. **shadcn/ui + Tailwind 4 + Radix primitives**, lucide-react. Contact form `POST`s to api. No auth.
 
-**Cross-app conventions (carried from vestra_old/AGENTS.md):**
+**Design system (both frontends):**
+
+- **shadcn/ui** — copy-paste primitive components living **in `packages/ui` (Vestra fork)**, not in app folders. Both apps consume `@vestra/ui` for buttons, inputs, dialogs, sheets, dropdowns, etc. Customizations land once; both apps inherit. shadcn `components.json` config lives in the package so the `npx shadcn add` workflow targets `packages/ui/src/components/`.
+- **Tailwind 4** with shared `@vestra/ui/styles.css` (theme tokens via CSS variables — light/dark in one stylesheet). Both apps import this once at app root.
+- **Radix UI primitives** for accessible dialogs/sheets/dropdowns/popovers/tabs. shadcn wraps these.
+- **lucide-react** for icons (replaces `react-icons` from vestra_old — lighter, consistent stroke, tree-shakable).
+- **framer-motion** for transitions (route, sheet, accordion, list reorder). Keep tasteful; cap at 200–250ms.
+- **No MUI in new apps.** Old MUI theme in `vestra_old/app/providers.tsx` is reference only.
+
+**Cross-app conventions:**
 
 - All reusable React UI lives in `packages/ui`, never inline in feature dirs.
-- Forms: HTML `<form>` + `react-hook-form`. No `useState` for form data or submit status.
-- Icons: `react-icons` only.
-- Dates: always `<DateDisplay>` from `packages/ui` (UTC formatting — never `toLocaleDateString()`).
-- Mobile-first. `md:`/`lg:` only as enhancement.
+- Forms: HTML `<form>` + `react-hook-form` + `@hookform/resolvers` + `yup`. No `useState` for form data or submit status.
+- Icons: **`lucide-react`** only. One import per icon.
+- Dates: always `<DateDisplay>` from `@vestra/ui` (UTC formatting — never `toLocaleDateString()`).
+- **Mobile-first hard rules** — see "UI/UX standards" below. Base classes target mobile (≤640px). `sm:` / `md:` / `lg:` / `xl:` are enhancement only.
 - ESLint errors: `react-hooks/exhaustive-deps`, `@typescript-eslint/no-unused-vars`.
+
+## UI/UX standards (BLOCKING — both frontends)
+
+Treat these as build-failing rules in code review. UI/UX is a first-class deliverable on this rebuild, not an afterthought.
+
+### Mobile-first layout
+- Default viewport target is `375×667` (iPhone SE class). Test there before testing desktop.
+- Tailwind breakpoints: `sm 640 / md 768 / lg 1024 / xl 1280`. **Never write `sm:` etc. without a base class.** Base = mobile.
+- Layout uses CSS Grid / flex with `min-w-0` to prevent overflow. Never assume fixed widths.
+- Respect **safe-area insets**: any fixed top bar / bottom tab bar uses `env(safe-area-inset-top|bottom)` padding. Provided via `pt-safe` / `pb-safe` utility classes in `@vestra/ui/styles.css`.
+- Use `100dvh` (or `h-dvh`), not `100vh`, for full-height containers (iOS Safari URL bar fix).
+- Horizontal scrolling is a bug unless it's an intentional swipeable strip.
+
+### Touch targets & input
+- Minimum touch target **44×44 px**. Buttons, links, icon-only controls, table-row taps — all 44 minimum. Tailwind: `min-h-11 min-w-11` for icon buttons.
+- Form inputs minimum `h-12` (48px) on mobile; spacing between fields `gap-4` minimum.
+- Inputs use `inputMode` + `autocomplete` attributes (`inputMode="numeric"` on money, `autocomplete="email"`, etc.).
+- Numeric / money fields: **never** use `type="number"` — use `inputMode="decimal"` with masked input.
+- Tap delay: ensure `touch-action: manipulation` on tap targets.
+
+### Navigation (dashboard)
+- **Bottom tab bar** is the primary nav on mobile (`< lg`). Five slots max — currently: Dashboard / Transactions / Categories / Recurring / Settings. Active tab uses a filled icon + label; inactive uses outline + label.
+- Top bar collapses on scroll (sticky shrink, not hidden — users lose context if it disappears).
+- On `lg+`, swap to **persistent left sidebar** with the same destinations.
+- All sheets/dialogs slide from the bottom on mobile (`Drawer` / `Sheet` shadcn primitive), centered modal on desktop.
+- **Back navigation**: every secondary screen has a top-left back affordance — not just the OS back button.
+
+### Typography & spacing
+- Body text minimum `14px` on mobile (`text-sm`), `16px` on `md+`.
+- Line-height `1.5` minimum on body, `1.25` on headings.
+- Spacing scale stays Tailwind default (4px grid). Sections separated by `space-y-6` mobile, `space-y-8` desktop.
+- Use `tabular-nums` on every money / numeric column.
+
+### Color & contrast
+- WCAG AA contrast on all text (4.5:1 small, 3:1 large). Use the design tokens; never hardcode colors.
+- Brand primary green carries over from vestra_old: `#22c55e` (Tailwind `green-500`). Map to `--color-primary` token.
+- **Dark mode** is default for the dashboard (matches current product). Light mode supported. Marketing site defaults to system.
+- Toggle via CSS class on `<html>` (`.dark`), driven by `next-themes`-style hook.
+
+### Feedback & motion
+- Every async action shows a state within 100ms: spinner, skeleton, optimistic update, or disabled+pending.
+- **Skeleton screens** > spinners for list/page loads.
+- Toast notifications via shadcn `sonner` (top-right desktop, top-center mobile, swipe-to-dismiss).
+- Page transitions ≤ 250ms; respect `prefers-reduced-motion`.
+- Haptic feedback hint: use `navigator.vibrate(10)` on primary button taps on mobile (gated by `prefers-reduced-motion`).
+
+### Forms
+- Field error messages live **below** the field (not in toast). Error state on input border + helper text + `aria-invalid`.
+- Submit button disabled until form is valid AND not already submitting. Pending state shows inline spinner inside the button.
+- Confirm destructive actions with an explicit `<AlertDialog>` (shadcn) — no `window.confirm`.
+- Currency input: BRL formatting (`R$ 1.234,56`), comma as decimal separator. Uses a single shared `<MoneyInput>` in `@vestra/ui`.
+
+### Accessibility (non-negotiable)
+- Every interactive element keyboard-reachable, focus ring visible.
+- `aria-label` on icon-only buttons.
+- Semantic landmarks: `<main>`, `<nav>`, `<header>`, `<footer>`. One `<h1>` per route.
+- Forms use `<label htmlFor>` — never bare placeholders as labels.
+- Test screen reader output for register / login / create-transaction flows minimum.
+
+### PWA
+- Installable manifest, icons (192, 512, maskable). App name "Vestra", theme color green, background dark.
+- Service worker: `vite-plugin-pwa` with `workbox` — precache app shell, runtime-cache GET `/api/v1/workspaces*` for read-while-offline (5 min TTL, network-first).
+- Offline page: simple "no connection" state, retry button. Show last successful data when available.
+- Status bar color matches theme on iOS (`apple-mobile-web-app-status-bar-style`).
+
+### Performance budget
+- Initial JS ≤ 200KB gz on dashboard, ≤ 100KB gz on marketing.
+- LCP < 2.5s on 4G simulation. First input delay < 100ms.
+- Lazy-load routes (`React.lazy` + `Suspense`). Lazy-load `recharts` and `framer-motion` if they bloat initial bundle.
+- Run `pnpm build` then check `dist/` sizes before shipping a feature. Document any deliberate budget burn.
+
+### QA checklist before any UI PR
+- [ ] Tested at `375×667` (mobile), `768×1024` (tablet), `1280×800` (desktop)
+- [ ] All tap targets ≥ 44×44
+- [ ] Keyboard navigable end-to-end
+- [ ] Works with `prefers-reduced-motion`
+- [ ] Loading state shown within 100ms
+- [ ] Error state designed (not just thrown to console)
+- [ ] Empty state designed (zero-data view)
+- [ ] Safe-area insets respected on iOS notch / home indicator
 
 ## Rebuild plan
 
@@ -93,30 +182,73 @@ Phases run sequentially. Each phase should end with a working `pnpm dev` for wha
 9. `.env`: `DATABASE_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, `MARKETING_URL`, `DASHBOARD_URL` (CORS allowlist).
 10. Smoke test: run against existing Postgres data, fetch a user/workspace successfully.
 
-### Phase 2 — `apps/dashboard` (Vite + React 19)
+### Phase 2 — Design system in `packages/ui` (foundation for both apps)
+
+Build the shared UI **first**, before either app. Both dashboard and marketing consume `@vestra/ui` — the UI lib is the single source of truth for tokens, primitives, and behavior.
+
+1. Set up Tailwind 4 in `packages/ui` with a CSS-first config (`@theme` block). Tokens: colors (primary green `#22c55e`, neutral scale, semantic — success/warn/danger/info), spacing, radius (rounded-xl default), shadows, typography scale.
+2. Export `@vestra/ui/styles.css` — single import that wires Tailwind preflight + tokens + dark mode (`.dark` class) + safe-area utility classes (`.pt-safe`, `.pb-safe`, `.px-safe`).
+3. Initialize shadcn/ui inside `packages/ui` (`components.json` pointing at `src/components/`). Install primitives: Button, Input, Label, Textarea, Select, Checkbox, RadioGroup, Switch, Slider, Dialog, AlertDialog, Sheet (Drawer), DropdownMenu, Popover, Tooltip, Tabs, Accordion, Toast (Sonner), Skeleton, Avatar, Badge, Card, Separator, Toggle, ScrollArea.
+4. Vestra-specific composites in `@vestra/ui`:
+   - `<DateDisplay>` (port — UTC formatting, mandated).
+   - `<MoneyInput>` — BRL-masked, `inputMode="decimal"`, integrates with react-hook-form.
+   - `<DateInput>` / `<DateRangeInput>` — built on `react-day-picker` inside `<Popover>` (mobile: bottom sheet).
+   - `<CodeInput>` — 6-digit confirmation, auto-advance, paste-handling.
+   - `<BottomTabBar>` — mobile primary nav (5 slots, active state, safe-area aware).
+   - `<TopBar>` — collapses-on-scroll, back button, title slot, action slot.
+   - `<EmptyState>`, `<ErrorState>`, `<PageSkeleton>` — placeholder primitives.
+   - `<FormField>` — react-hook-form-aware wrapper (label + control + error + hint).
+   - `<CategoryIcon>` / `<CategoryBadge>` — colored circle + icon for category UI.
+5. Theme hook: `useTheme()` (light/dark/system) stored in localStorage, syncs `<html class="dark">`.
+6. Set up Storybook (optional but recommended) for component dev in isolation. Vite-based.
+7. Export everything from `@vestra/ui` root and `@vestra/ui/styles.css`.
+
+### Phase 3 — `apps/dashboard` (Vite + React 19, mobile-first PWA)
+
 1. `pnpm create vite@latest dashboard -- --template react-ts` inside `apps/`.
-2. Install: `@tanstack/react-query`, `react-router-dom`, `react-hook-form`, `@hookform/resolvers`, `yup`, `@mui/material`, `@emotion/react`, `@emotion/styled`, `@mui/x-date-pickers`, `dayjs`, `react-icons`, `recharts`, `axios`.
-3. `AuthProvider`: access token in React state, refresh token rides in httpOnly cookie set by API. Axios interceptor: on 401, call `/auth/refresh`, retry once, else redirect to `/login`.
-4. Router: `/login`, `/register`, `/forgot-password`, `/reset-password`, `/workspaces` (picker), `/workspace/:id/dashboard`, `/workspace/:id/config`, `/workspace/:id/invite/:userId`.
-5. Port pages from `vestra_old/app/workspace/[workspaceId]/*` and `vestra_old/app/(auth)/*`. Replace Server Actions with TanStack Query mutations against the api.
-6. Theme + LocalizationProvider: lift `vestra_old/app/providers.tsx` MUI theme into `apps/dashboard/src/providers.tsx`.
-7. Move shared components (`DateDisplay`, `Button`, `Input`, `Alert`, `CodeInput`, `Modal`, `Select`, `MultiSelect`, `MoneyInput`, `Loading`, `Checkbox`) into `packages/ui` as you port them. Dashboard imports `@vestra/ui`.
+2. Install: `@tanstack/react-query`, `@tanstack/react-query-devtools`, `react-router-dom@^7`, `react-hook-form`, `@hookform/resolvers`, `yup`, `axios`, `dayjs`, `lucide-react`, `recharts`, `framer-motion`, `vite-plugin-pwa`, `workbox-window`, `@vestra/ui` (workspace), `@vestra/types` (workspace), `tailwindcss@^4`, `@tailwindcss/vite`.
+3. `vite.config.ts`: Tailwind plugin + `vite-plugin-pwa` with manifest (name "Vestra", short_name, icons 192/512/maskable, theme_color `#22c55e`, background_color `#0c0c0f`, display `standalone`, start_url `/`).
+4. `index.html`: viewport meta `viewport-fit=cover` for notch, `apple-mobile-web-app-capable`, status bar style.
+5. Auth: `AuthProvider` keeps access token in React state. Axios instance with request interceptor (adds bearer), response interceptor (401 → POST /auth/refresh → retry original; failure → clear state + redirect `/login`). Refresh token is httpOnly cookie, not touched by JS.
+6. Router (`react-router-dom v7`, file-style or declarative):
+   - Public: `/login`, `/register`, `/register/confirm`, `/forgot-password`, `/reset-password`.
+   - Authed shell: `<AppShell>` with `<TopBar>` + `<BottomTabBar>` on `< lg`, `<Sidebar>` on `lg+`.
+   - Authed routes: `/`, `/transactions`, `/categories`, `/recurring`, `/settings`, `/workspaces` (picker), `/workspace/:id` (deep link → routes above scoped to that workspace via context or path prefix), `/invites` (incoming).
+   - Active workspace held in `useWorkspaceContext()` (persists to localStorage, validates against `/workspaces` on boot).
+7. Pages (each is mobile-first; design at 375×667 first):
+   - **Login / Register / Reset** — single-column form, big inputs, brand mark top.
+   - **Dashboard** — KPI cards row (scroll-snap on mobile, grid on desktop), line chart (monthly net), category breakdown bar, recent transactions list.
+   - **Transactions** — virtualized list (`@tanstack/react-virtual`), grouped by day. Top: month picker + category filter chip. FAB (`+`) bottom-right opens bottom-sheet form. Swipe-left on row reveals edit/delete actions.
+   - **Categories** — list with colored avatars. Long-press / row tap → edit sheet.
+   - **Recurring** — list of templates, active/inactive toggle, manual "generate now" action.
+   - **Settings** — profile, workspace switcher, member management, plan, theme toggle, logout.
+8. Form pages use `react-hook-form` + yup schemas (live in `@vestra/types` or local). All mutations go through TanStack Query `useMutation`, invalidate keys on success.
+9. Notifications: shadcn `Sonner` toaster at app root. Success = green check, errors = red exclaim, both swipe-dismissable.
+10. Install prompt: show shadcn `<Toast>` after second authenticated visit (`localStorage` flag) inviting to "Add Vestra to home screen", with iOS-specific copy when needed.
+11. Smoke checkpoints:
+    - 375×667 layout review on every page before moving on.
+    - Lighthouse PWA score ≥ 90.
+    - Build size ≤ 200KB gz (vendor bundle excluded).
 
-### Phase 3 — `apps/marketing` (Next.js)
-1. `pnpm create next-app@latest marketing` inside `apps/`. App Router, TS, Tailwind 4.
-2. Port `vestra_old/app/page.tsx` (landing), `vestra_old/app/privacy/`, `vestra_old/app/terms/`, `vestra_old/app/components/home/*`.
-3. Contact form posts to `${API_URL}/contact`. No auth.
-4. Login/Register CTAs link to `${DASHBOARD_URL}/login`.
+### Phase 4 — `apps/marketing` (Next.js 16, mobile-first)
 
-### Phase 4 — Shared packages fill-in
-1. `packages/types`: enums (`CATEGORY_TYPES`, `FREQUENCY_TYPES`), DTOs for every endpoint. API and dashboard both depend on it.
-2. `packages/ui`: incremental — populate as Phase 2 demands components. `<DateDisplay>` is highest priority since it's mandated.
+1. `pnpm create next-app@latest marketing` inside `apps/`. App Router, TS, **Tailwind 4** (skip default scaffold's Tailwind, install ours through `@vestra/ui/styles.css`).
+2. Install: `@vestra/ui`, `@vestra/types`, `lucide-react`, `framer-motion`, `tailwindcss@^4`, `@tailwindcss/postcss`, `next-themes`.
+3. Pages:
+   - `/` — landing. Hero (big headline + screenshot mockup of the dashboard mobile), feature grid, plan comparison (Free vs Pro), social proof slot, FAQ accordion, contact CTA.
+   - `/privacy`, `/terms` — long-form content. Sticky TOC on `lg+`, in-page anchor links.
+   - `/contact` — form (`<form>` + react-hook-form). Submits to `${API_URL}/contact`. Success state in-place.
+4. Components live in `@vestra/ui`. Marketing-specific page sections (`<Hero>`, `<FeatureCard>`, `<PlanCard>`, `<FAQItem>`) sit in `app/_sections/`.
+5. Hero & feature cards use `framer-motion` `whileInView` for entry animations, capped 250ms, respects `prefers-reduced-motion`.
+6. CTAs (`Login`, `Sign up`) link to `${DASHBOARD_URL}/login` and `${DASHBOARD_URL}/register`.
+7. SEO: per-page metadata, OG images, sitemap.xml, robots.txt.
+8. Performance budget: ≤ 100KB gz initial JS. Hero is mostly static HTML + CSS.
 
 ### Phase 5 — DevX + cutover
 1. Turbo pipeline tested end-to-end. `pnpm dev` brings up all three apps + Postgres.
-2. Regression-check: log in with an existing `vestra_old` user against the new api. Workspaces and transactions load correctly.
-3. Delete `vestra_old/.next`, `vestra_old/node_modules`. Keep source until parity confirmed.
-4. Remove the empty `vestra/` placeholder dir (`/home/vinicius/vestra/vestra`) once apps exist.
+2. Regression-check: log in with an existing `vestra_old` user against the new api. Workspaces and transactions load correctly on the new dashboard.
+3. Lighthouse run on dashboard + marketing — meet performance + PWA budgets stated in UI/UX standards.
+4. Delete `vestra_old/.next`, `vestra_old/node_modules`. Keep source until parity confirmed.
 5. Final cutover: archive `vestra_old/` (rename to `_legacy_vestra/` or move out of repo).
 
 ## Commands (legacy — run from inside `vestra_old/`)

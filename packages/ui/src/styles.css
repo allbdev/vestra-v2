@@ -1,0 +1,3 @@
+/* Single entry — both apps `import "@vestra/ui/styles.css"`. */
+@import "./tokens.css";
+@import "./tailwind.css";
