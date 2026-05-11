@@ -10,8 +10,6 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "declaration": true,
-    "outDir": "dist",
-    "rootDir": "src",
     "sourceMap": true,
     "noUncheckedIndexedAccess": false
   }

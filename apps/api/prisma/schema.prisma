@@ -1,0 +1,244 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                        String                @id @default(uuid()) @db.VarChar(36)
+  name                      String?               @db.VarChar(255)
+  email                     String                @unique @db.VarChar(255)
+  password                  String                @db.VarChar(255)
+  createdAt                 DateTime              @default(now()) @map("created_at")
+  updatedAt                 DateTime              @updatedAt @map("updated_at")
+  deletedAt                 DateTime?             @map("deleted_at")
+  active                    Int                   @default(1)
+  sessions                  Session[]
+  ownedWorkspaces           Workspace[]           @relation("WorkspaceOwner")
+  workspaceUsers            WorkspaceUser[]
+  workspaceInvites          WorkspaceInvite[]
+  ownedCategories           Category[]
+  ownedTransactionTemplates TransactionTemplate[]
+  ownedTransactions         Transaction[]
+  userPlans                 UserPlan[]
+  onboarding                Onboarding[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id                   String                @id @default(uuid()) @db.VarChar(36)
+  name                 String                @db.VarChar(255)
+  ownerId              String                @map("owner_id") @db.VarChar(36)
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  deletedAt            DateTime?             @map("deleted_at")
+  owner                User                  @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  users                WorkspaceUser[]
+  invites              WorkspaceInvite[]
+  categories           Category[]
+  transactionTemplates TransactionTemplate[]
+  transactions         Transaction[]
+
+  @@index([ownerId])
+  @@map("workspaces")
+}
+
+model WorkspaceUser {
+  id          String    @id @default(uuid()) @db.VarChar(36)
+  workspaceId String    @map("workspace_id") @db.VarChar(36)
+  userId      String    @map("user_id") @db.VarChar(36)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@map("workspace_users")
+}
+
+model ConfirmationCode {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  email     String   @db.VarChar(255)
+  code      String   @db.VarChar(6)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, code])
+  @@map("confirmation_codes")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  userId    String   @map("user_id") @db.VarChar(36)
+  token     String   @unique @db.VarChar(500)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+model WorkspaceInvite {
+  id          String    @id @default(uuid()) @db.VarChar(36)
+  workspaceId String    @map("workspace_id") @db.VarChar(36)
+  userId      String    @map("user_id") @db.VarChar(36)
+  status      String    @default("waiting") @db.VarChar(20) // 'waiting', 'accepted', 'rejected'
+  createdAt   DateTime  @default(now()) @map("created_at")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([status])
+  @@map("workspace_invites")
+}
+
+model Category {
+  id                   String                @id @default(uuid()) @db.VarChar(36)
+  workspaceId          String                @map("workspace_id") @db.VarChar(36)
+  ownerId              String                @map("owner_id") @db.VarChar(36)
+  name                 String                @db.VarChar(100)
+  type                 Int // 1=Income, 2=Expense
+  color                String?               @db.VarChar(7)
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  deletedAt            DateTime?             @map("deleted_at")
+  workspace            Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner                User                  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  transactionTemplates TransactionTemplate[]
+  transactions         Transaction[]
+
+  @@index([workspaceId])
+  @@index([ownerId])
+  @@map("categories")
+}
+
+model TransactionTemplate {
+  id           String        @id @default(uuid()) @db.VarChar(36)
+  workspaceId  String        @map("workspace_id") @db.VarChar(36)
+  ownerId      String        @map("owner_id") @db.VarChar(36)
+  categoryId   String?       @map("category_id") @db.VarChar(36)
+  description  String        @db.VarChar(255)
+  baseAmount   Decimal       @map("base_amount") @db.Decimal(15, 2)
+  frequency    Int? // 1=Daily, 2=Weekly, 3=Monthly, 4=Yearly
+  startDate    DateTime      @map("start_date") @db.Date
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  deletedAt    DateTime?     @map("deleted_at")
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+
+  @@index([workspaceId])
+  @@index([ownerId])
+  @@index([categoryId])
+  @@map("transaction_templates")
+}
+
+model Transaction {
+  id          String               @id @default(uuid()) @db.VarChar(36)
+  workspaceId String               @map("workspace_id") @db.VarChar(36)
+  ownerId     String               @map("owner_id") @db.VarChar(36)
+  categoryId  String?              @map("category_id") @db.VarChar(36)
+  templateId  String?              @map("template_id") @db.VarChar(36)
+  description String               @db.VarChar(255)
+  amount      Decimal              @db.Decimal(15, 2)
+  date        DateTime             @db.Date
+  isPaid      Boolean              @default(false) @map("is_paid")
+  paidAt      DateTime?            @map("paid_at")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  deletedAt   DateTime?            @map("deleted_at")
+  workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner       User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  category    Category?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  template    TransactionTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([ownerId])
+  @@index([categoryId])
+  @@index([templateId])
+  @@index([date])
+  @@map("transactions")
+}
+
+model Message {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  name      String   @db.VarChar(255)
+  email     String   @db.VarChar(255)
+  phone     String?  @db.VarChar(50)
+  message   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("messages")
+}
+
+model Plan {
+  id        String     @id @default(uuid()) @db.VarChar(36)
+  name      String     @unique @db.VarChar(50)
+  price     Decimal    @db.Decimal(10, 2)
+  isDefault Boolean    @default(false) @map("is_default")
+  createdAt DateTime   @default(now()) @map("created_at")
+  userPlans UserPlan[]
+
+  @@map("plans")
+}
+
+
+model UserPlan {
+  id        String    @id @default(uuid()) @db.VarChar(36)
+  userId    String    @map("user_id") @db.VarChar(36)
+  planId    String    @map("plan_id") @db.VarChar(36)
+  startDate DateTime  @default(now()) @map("start_date")
+  endDate   DateTime? @map("end_date")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([planId])
+  @@map("user_plans")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  email     String   @db.VarChar(255)
+  token     String   @unique @db.VarChar(500)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([token])
+  @@map("password_reset_tokens")
+}
+
+
+model Onboarding {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  step      Int
+  completed Boolean
+  userId    String   @map("user_id") @db.VarChar(36)
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("onboarding")
+}
