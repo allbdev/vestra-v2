@@ -79,6 +79,31 @@ export {
 
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 
+export {
+  Select,
+  SelectGroup,
+  SelectValue,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+} from "./components/ui/select";
+
+export { Switch } from "./components/ui/switch";
+
+export { ChartTooltip, type ChartTooltipProps } from "./components/ui/chart-tooltip";
+
+export {
+  Popover,
+  PopoverTrigger,
+  PopoverAnchor,
+  PopoverClose,
+  PopoverContent,
+} from "./components/ui/popover";
+
+export { Calendar, type CalendarProps } from "./components/ui/calendar";
+
 // Vestra composites
 export { DateDisplay, type DateDisplayProps } from "./components/ui/DateDisplay";
 
@@ -86,6 +111,11 @@ export { DateDisplay, type DateDisplayProps } from "./components/ui/DateDisplay"
 export { FormField, type FormFieldProps } from "./components/form/FormField";
 export { MoneyInput, type MoneyInputProps } from "./components/form/MoneyInput";
 export { CodeInput, type CodeInputProps } from "./components/form/CodeInput";
+export {
+  DateRangePicker,
+  type DateRangePickerProps,
+  type DateRange,
+} from "./components/form/DateRangePicker";
 
 // Layout
 export { TopBar, type TopBarProps } from "./components/layout/TopBar";
@@ -95,6 +125,7 @@ export {
   type BottomTabItem,
 } from "./components/layout/BottomTabBar";
 export { AppShell, type AppShellProps } from "./components/layout/AppShell";
+export { Fab } from "./components/layout/Fab";
 
 // Feedback
 export { EmptyState, type EmptyStateProps } from "./components/feedback/EmptyState";

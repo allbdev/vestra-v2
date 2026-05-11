@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Tailwind v4 auto-detects sources from the consuming app's project root.
+   It does NOT follow workspace symlinks into node_modules. Add every place
+   the design system lives so utility classes used here actually compile. */
+@source "./**/*.{ts,tsx}";
+@source "../../../apps/dashboard/src/**/*.{ts,tsx}";
+@source "../../../apps/dashboard/index.html";
+@source "../../../apps/marketing/**/*.{ts,tsx}";
+
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

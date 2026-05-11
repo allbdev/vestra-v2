@@ -21,14 +21,15 @@ export interface BottomTabBarProps {
 
 /**
  * Mobile primary navigation. 5 slots max. Safe-area aware bottom padding.
- * Hidden on `lg+`. Pair with a sidebar at that breakpoint.
+ * Renders in-flow (no `position: fixed`) — AppShell hides it on `lg+` and
+ * keeps it as a shrink-0 column child on mobile, so it never overlays content.
  */
 export function BottomTabBar({ items, active, asLink, className }: BottomTabBarProps) {
   return (
     <nav
       aria-label="Primary"
       className={cn(
-        "fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/90 backdrop-blur-md pb-safe lg:hidden",
+        "border-t border-border bg-background/90 backdrop-blur-md pb-safe",
         className,
       )}
     >

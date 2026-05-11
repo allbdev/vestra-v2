@@ -11,6 +11,7 @@
     "emitDecoratorMetadata": true,
     "declaration": true,
     "sourceMap": true,
-    "noUncheckedIndexedAccess": false
+    "noUncheckedIndexedAccess": false,
+    "incremental": false
   }
 }

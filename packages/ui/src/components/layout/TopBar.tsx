@@ -10,13 +10,20 @@ export interface TopBarProps {
   leading?: ReactNode;
   trailing?: ReactNode;
   className?: string;
-  /** Render the bar as the page hero (larger title) when true. */
+  /** Render the bar as the page hero (larger title, taller bar) when true. */
   large?: boolean;
 }
 
 /**
- * Sticky top bar. Mobile-first. Safe-area aware.
- * Back arrow appears when `onBack` is provided. `leading` overrides back.
+ * Top bar. Sits as a `shrink-0` flex child of the AppShell column —
+ * the column doesn't scroll, so this stays pinned without `position: sticky`.
+ * Safe-area aware via `pt-safe`.
+ *
+ * Two layouts share one row of flex children so the title can shrink and
+ * `truncate` correctly even on wide viewports. `large` only changes typography,
+ * padding and height — not the structure — to avoid the wide-viewport bug
+ * where a column-flex container with `items-start` makes the title section
+ * content-sized and disables truncation.
  */
 export function TopBar({
   title,
@@ -30,17 +37,17 @@ export function TopBar({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md pt-safe",
+        "z-40 border-b border-border bg-background/85 backdrop-blur-md pt-safe",
         className,
       )}
     >
       <div
         className={cn(
-          "mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 md:h-16",
-          large && "h-auto flex-col items-start gap-1 py-4",
+          "mx-auto flex max-w-7xl items-center gap-2 px-4",
+          large ? "min-h-20 py-4 md:min-h-24 md:py-5" : "h-14 md:h-16",
         )}
       >
-        <div className="flex flex-1 items-center gap-2 min-w-0">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {leading ??
             (onBack ? (
               <Button
@@ -58,7 +65,7 @@ export function TopBar({
               <h1
                 className={cn(
                   "truncate font-semibold leading-tight",
-                  large ? "text-2xl md:text-3xl" : "text-base md:text-lg",
+                  large ? "text-xl md:text-2xl" : "text-base md:text-lg",
                 )}
               >
                 {title}
@@ -69,7 +76,7 @@ export function TopBar({
             ) : null}
           </div>
         </div>
-        {trailing ? <div className="flex items-center gap-1">{trailing}</div> : null}
+        {trailing ? <div className="flex shrink-0 items-center gap-1">{trailing}</div> : null}
       </div>
     </header>
   );

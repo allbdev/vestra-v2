@@ -133,7 +133,9 @@ export class AuthService {
     user: { id: string; email: string; name: string | null; sessionId: string; refreshToken: string },
     res: Response,
   ): Promise<AuthTokens> {
-    await this.prisma.session.delete({ where: { id: user.sessionId } });
+    // Idempotent: a parallel refresh may have already rotated this session.
+    // deleteMany returns count without throwing on missing rows.
+    await this.prisma.session.deleteMany({ where: { id: user.sessionId } });
     return this.issueSession(res, { id: user.id, email: user.email, name: user.name });
   }
 

@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "predev": "rm -rf dist tsconfig.tsbuildinfo tsconfig.build.tsbuildinfo",
     "dev": "nest start --watch",
-    "prebuild": "rm -f tsconfig.build.tsbuildinfo",
+    "prebuild": "rm -rf dist tsconfig.build.tsbuildinfo",
     "build": "nest build",
     "start": "node dist/main.js",
     "lint": "eslint src",
