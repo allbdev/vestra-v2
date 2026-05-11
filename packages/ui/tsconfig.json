@@ -1,0 +1,7 @@
+{
+  "extends": "@vestra/tsconfig/vite.json",
+  "compilerOptions": {
+    "types": ["react"]
+  },
+  "include": ["src/**/*"]
+}
