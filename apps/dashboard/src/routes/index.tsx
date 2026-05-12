@@ -17,6 +17,11 @@ const DashboardPage = lazy(() =>
 const TransactionsPage = lazy(() =>
   import("../pages/app/TransactionsPage").then((m) => ({ default: m.TransactionsPage })),
 );
+const TransactionDetailPage = lazy(() =>
+  import("../pages/app/TransactionDetailPage").then((m) => ({
+    default: m.TransactionDetailPage,
+  })),
+);
 const CategoriesPage = lazy(() =>
   import("../pages/app/CategoriesPage").then((m) => ({ default: m.CategoriesPage })),
 );
@@ -86,6 +91,14 @@ export const router = createBrowserRouter([
     element: (
       <Authed>
         <TransactionsPage />
+      </Authed>
+    ),
+  },
+  {
+    path: "/transactions/:id",
+    element: (
+      <Authed>
+        <TransactionDetailPage />
       </Authed>
     ),
   },

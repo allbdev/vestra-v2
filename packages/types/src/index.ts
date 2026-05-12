@@ -21,3 +21,31 @@ export const InviteStatus = {
   Rejected: "rejected",
 } as const;
 export type InviteStatus = (typeof InviteStatus)[keyof typeof InviteStatus];
+
+export const NotificationType = {
+  PaymentDue3d: "payment_due_3d",
+  PaymentDue2d: "payment_due_2d",
+  PaymentDue1d: "payment_due_1d",
+  PaymentDueToday: "payment_due_0d",
+  PaymentOverdue: "payment_overdue",
+} as const;
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
+
+export interface NotificationData {
+  transactionId?: string;
+  amount?: number;
+  dueDate?: string;
+  workspaceId?: string;
+  workspaceName?: string;
+  daysLate?: number;
+}
+
+export interface NotificationDto {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  data: NotificationData | null;
+  readAt: string | null;
+  createdAt: string;
+}

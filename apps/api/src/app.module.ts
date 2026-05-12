@@ -14,6 +14,7 @@ import { PlansModule } from "./plans/plans.module";
 import { ContactModule } from "./contact/contact.module";
 import { CronModule } from "./cron/cron.module";
 import { HealthModule } from "./health/health.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { HealthModule } from "./health/health.module";
     TransactionsModule,
     PlansModule,
     ContactModule,
+    NotificationsModule,
     CronModule,
     HealthModule,
   ],

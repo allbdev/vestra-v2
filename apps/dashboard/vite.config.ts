@@ -10,6 +10,10 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
+      injectRegister: "auto",
       includeAssets: ["favicon.ico", "apple-touch-icon.png"],
       manifest: {
         name: "Vestra",
@@ -27,21 +31,10 @@ export default defineConfig({
           { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
-      workbox: {
-        navigateFallback: "/index.html",
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith("/api/v1/workspaces"),
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "vestra-api-read",
-              expiration: { maxEntries: 50, maxAgeSeconds: 5 * 60 },
-              networkTimeoutSeconds: 5,
-            },
-          },
-        ],
+      injectManifest: {
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
-      devOptions: { enabled: false },
+      devOptions: { enabled: false, type: "module" },
     }),
   ],
   resolve: {

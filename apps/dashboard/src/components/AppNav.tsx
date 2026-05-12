@@ -13,8 +13,39 @@ import {
   type BottomTabItem,
   cn,
 } from "@vestra/ui";
-import type { ReactNode } from "react";
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { useMyInvites } from "../api/hooks/useInvites";
+import { NotificationBell } from "./NotificationBell";
+
+interface TopBarPropsLike {
+  trailing?: ReactNode;
+}
+
+function withBell(topBar: ReactNode): ReactNode {
+  if (!topBar) {
+    return null;
+  }
+  if (!isValidElement(topBar)) {
+    return (
+      <div className="flex items-center">
+        <div className="min-w-0 flex-1">{topBar}</div>
+        <div className="px-2">
+          <NotificationBell />
+        </div>
+      </div>
+    );
+  }
+  const el = topBar as ReactElement<TopBarPropsLike>;
+  const existing = el.props.trailing;
+  return cloneElement(el, {
+    trailing: (
+      <>
+        {existing}
+        <NotificationBell />
+      </>
+    ),
+  });
+}
 
 const baseTabs: BottomTabItem[] = [
   { key: "home", label: "Início", icon: Home, href: "/" },
@@ -104,7 +135,7 @@ export function AppNavShell({
   return (
     <AppShell
       sidebar={<Sidebar active={active} invitesCount={pending} />}
-      topBar={topBar}
+      topBar={withBell(topBar)}
       bottomBar={
         <BottomTabBar
           items={mobileTabs}

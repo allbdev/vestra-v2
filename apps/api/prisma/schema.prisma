@@ -30,6 +30,9 @@ model User {
   ownedTransactions         Transaction[]
   userPlans                 UserPlan[]
   onboarding                Onboarding[]
+  notifications             Notification[]
+  pushSubscriptions         PushSubscription[]
+  workspaceNotificationPrefs WorkspaceNotificationPref[]
 
   @@map("users")
 }
@@ -47,6 +50,7 @@ model Workspace {
   categories           Category[]
   transactionTemplates TransactionTemplate[]
   transactions         Transaction[]
+  notificationPrefs    WorkspaceNotificationPref[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -230,6 +234,54 @@ model PasswordResetToken {
   @@map("password_reset_tokens")
 }
 
+
+model Notification {
+  id          String    @id @default(uuid()) @db.VarChar(36)
+  userId      String    @map("user_id") @db.VarChar(36)
+  workspaceId String?   @map("workspace_id") @db.VarChar(36)
+  type        String    @db.VarChar(50)
+  title       String    @db.VarChar(255)
+  body        String    @db.VarChar(500)
+  data        Json?
+  dedupeKey   String?   @map("dedupe_key") @db.VarChar(255)
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model WorkspaceNotificationPref {
+  id          String    @id @default(uuid()) @db.VarChar(36)
+  userId      String    @map("user_id") @db.VarChar(36)
+  workspaceId String    @map("workspace_id") @db.VarChar(36)
+  muted       Boolean   @default(false)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+  @@map("workspace_notification_prefs")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  userId    String   @map("user_id") @db.VarChar(36)
+  endpoint  String   @unique @db.VarChar(500)
+  p256dh    String   @db.VarChar(255)
+  authKey   String   @map("auth_key") @db.VarChar(255)
+  userAgent String?  @map("user_agent") @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
 
 model Onboarding {
   id        String   @id @default(uuid()) @db.VarChar(36)

@@ -52,6 +52,7 @@ import { AxiosError } from "axios";
 import { WorkspaceCreateSheet } from "../../components/sheets/WorkspaceCreateSheet";
 import { WorkspaceMembersSheet } from "../../components/sheets/WorkspaceMembersSheet";
 import { ConfirmDelete } from "../../components/ConfirmDelete";
+import { NotificationsSettingsCard } from "../../components/NotificationsSettingsCard";
 import { useMyInvites } from "../../api/hooks/useInvites";
 
 const renameSchema = yup.object({
@@ -194,6 +195,8 @@ export function SettingsPage() {
             <span className="text-xs text-muted-foreground">Nenhum</span>
           )}
         </Link>
+
+        <NotificationsSettingsCard />
 
         <Card>
           <CardHeader>

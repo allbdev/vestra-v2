@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Plus,
   ArrowLeftRight,
@@ -357,73 +358,81 @@ export function TransactionsPage() {
                     return (
                       <li
                         key={t.id}
-                        className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+                        className="flex items-center transition-colors hover:bg-muted/40"
                       >
-                        <span
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
-                          style={{ backgroundColor: t.category?.color ?? "#94a3b8" }}
-                          aria-hidden
+                        <Link
+                          to={`/transactions/${t.id}`}
+                          className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 focus-visible:outline-none focus-visible:bg-muted/40"
+                          aria-label={`Ver detalhes de ${t.description}`}
                         >
-                          {(t.category?.name ?? t.description).charAt(0).toUpperCase()}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{t.description}</p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {t.category?.name ?? "Sem categoria"}
-                            {t.isPaid ? " · Pago" : " · Pendente"}
-                          </p>
-                        </div>
-                        <span
-                          className={`shrink-0 text-sm font-semibold tabular-nums ${
-                            isIncome ? "text-success" : "text-destructive"
-                          }`}
-                        >
-                          {isIncome ? "+" : "-"} {formatMoney(toNumber(t.amount))}
-                        </span>
+                          <span
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+                            style={{ backgroundColor: t.category?.color ?? "#94a3b8" }}
+                            aria-hidden
+                          >
+                            {(t.category?.name ?? t.description).charAt(0).toUpperCase()}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">{t.description}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {t.category?.name ?? "Sem categoria"}
+                              {t.isPaid ? " · Pago" : " · Pendente"}
+                            </p>
+                          </div>
+                          <span
+                            className={`shrink-0 text-sm font-semibold tabular-nums ${
+                              isIncome ? "text-success" : "text-destructive"
+                            }`}
+                          >
+                            {isIncome ? "+" : "-"} {formatMoney(toNumber(t.amount))}
+                          </span>
+                        </Link>
                         {isOwner ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" aria-label="Ações">
-                                <MoreVertical className="h-5 w-5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onSelect={async () => {
-                                  try {
-                                    await update.mutateAsync({
-                                      id: t.id,
-                                      isPaid: !t.isPaid,
-                                      paidAt: !t.isPaid
-                                        ? new Date().toISOString().slice(0, 10)
-                                        : null,
-                                    });
-                                    toast.success(
-                                      t.isPaid ? "Marcado como pendente" : "Marcado como pago",
-                                    );
-                                  } catch {
-                                    toast.error("Não foi possível atualizar");
-                                  }
-                                }}
-                              >
-                                {t.isPaid ? (
-                                  <>
-                                    <CircleOff className="h-4 w-4" /> Marcar pendente
-                                  </>
-                                ) : (
-                                  <>
-                                    <Check className="h-4 w-4" /> Marcar pago
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => setEditing(t)}>
-                                <Pencil className="h-4 w-4" /> Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => setDeleting(t)}>
-                                <Trash2 className="h-4 w-4" /> Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <div className="pr-2">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" aria-label="Ações">
+                                  <MoreVertical className="h-5 w-5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onSelect={async () => {
+                                    try {
+                                      await update.mutateAsync({
+                                        id: t.id,
+                                        isPaid: !t.isPaid,
+                                        paidAt: !t.isPaid
+                                          ? new Date().toISOString().slice(0, 10)
+                                          : null,
+                                      });
+                                      toast.success(
+                                        t.isPaid ? "Marcado como pendente" : "Marcado como pago",
+                                      );
+                                    } catch {
+                                      toast.error("Não foi possível atualizar");
+                                    }
+                                  }}
+                                >
+                                  {t.isPaid ? (
+                                    <>
+                                      <CircleOff className="h-4 w-4" /> Marcar pendente
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Check className="h-4 w-4" /> Marcar pago
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setEditing(t)}>
+                                  <Pencil className="h-4 w-4" /> Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setDeleting(t)}>
+                                  <Trash2 className="h-4 w-4" /> Excluir
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         ) : null}
                       </li>
                     );

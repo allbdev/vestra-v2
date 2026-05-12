@@ -5,6 +5,8 @@ import type { Transaction } from "../types";
 const keys = {
   list: (workspaceId: string, q?: ListQuery) =>
     ["transactions", workspaceId, q ?? null] as const,
+  detail: (workspaceId: string, id: string) =>
+    ["transactions", workspaceId, "detail", id] as const,
 };
 
 export interface ListQuery {
@@ -68,6 +70,22 @@ export function useUpdateTransaction(workspaceId: string) {
       return res.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["transactions", workspaceId] }),
+  });
+}
+
+export function useTransaction(
+  workspaceId: string | null | undefined,
+  id: string | null | undefined,
+) {
+  return useQuery({
+    enabled: !!workspaceId && !!id,
+    queryKey: keys.detail(workspaceId ?? "", id ?? ""),
+    queryFn: async () => {
+      const res = await api.get<Transaction>(
+        `/workspaces/${workspaceId}/transactions/${id}`,
+      );
+      return res.data;
+    },
   });
 }
 

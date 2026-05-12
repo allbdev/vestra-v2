@@ -91,7 +91,21 @@ Required for the NestJS API to boot. All variables are read by `ConfigService`.
 
 | Var | Type | Dev default | Notes |
 |---|---|---|---|
-| `CRON_SECRET` | string | `change-me-cron` | Bearer secret for `POST /api/v1/cron/transactions` (manual recurring-transaction trigger). The scheduled internal cron (`@nestjs/schedule`, daily 04:00) doesn't use this — only the manual HTTP trigger. Generate: `openssl rand -hex 32`. |
+| `CRON_SECRET` | string | `change-me-cron` | Bearer secret for `POST /api/v1/cron/transactions` and `POST /api/v1/cron/payment-reminders` (manual triggers). Scheduled internal crons (`@nestjs/schedule`, daily 04:00 + 08:00 BRT) don't use this — only the manual HTTP triggers. Generate: `openssl rand -hex 32`. |
+
+### Notifications (Pusher + Web Push)
+
+| Var | Type | Dev default | Notes |
+|---|---|---|---|
+| `PUSHER_APP_ID` | string | `""` | Pusher Channels app id. From https://dashboard.pusher.com → Channels → app. |
+| `PUSHER_KEY` | string | `""` | Pusher Channels key (public-ish — mirrored to dashboard as `VITE_PUSHER_KEY`). |
+| `PUSHER_SECRET` | string | `""` | Pusher Channels secret. **Never expose to client.** |
+| `PUSHER_CLUSTER` | string | `""` | Cluster id (e.g. `sa1`, `us2`). Same value mirrored to `VITE_PUSHER_CLUSTER`. |
+| `VAPID_PUBLIC` | base64url string | `""` | Public VAPID key. Generate: `npx web-push generate-vapid-keys`. Mirrored to dashboard as `VITE_VAPID_PUBLIC`. |
+| `VAPID_PRIVATE` | base64url string | `""` | Private VAPID key. **Server only.** |
+| `VAPID_SUBJECT` | `mailto:` URL | `mailto:alb.develloper@gmail.com` | Required by web-push; identifies the sender to push services. Use any reachable email — push providers may contact this address about deliverability issues. |
+
+When any Pusher/VAPID var is missing, the corresponding emit is silently skipped (warned at boot). In-app DB notifications still get written.
 
 ### URLs (cross-app links)
 
@@ -109,6 +123,9 @@ The dashboard works out-of-the-box on `pnpm dev` because Vite proxies `/api` →
 | Var | Type | Notes |
 |---|---|---|
 | `VITE_API_URL` | url | API base URL incl. version. Example: `https://api.vestra-financas.com.br/api/v1`. **Not** set in dev — the empty default + Vite proxy handles it. |
+| `VITE_PUSHER_KEY` | string | Mirrors `PUSHER_KEY`. Required to receive in-app realtime notifications. |
+| `VITE_PUSHER_CLUSTER` | string | Mirrors `PUSHER_CLUSTER`. |
+| `VITE_VAPID_PUBLIC` | base64url string | Mirrors `VAPID_PUBLIC`. Required for OS push when the app is closed. Without it, only in-app + foreground OS toasts work. |
 
 Vite exposes anything `VITE_*`-prefixed to the bundle. Never put secrets here; treat all `VITE_*` vars as public.
 

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider, Toaster } from "@vestra/ui";
 import { AuthProvider } from "./auth/AuthProvider";
+import { NotificationsProvider } from "./notifications/NotificationsProvider";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { router } from "./routes";
 
@@ -27,9 +28,11 @@ export function App() {
     <ThemeProvider defaultTheme="dark">
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <RouterProvider router={router} />
-          <InstallPrompt />
-          <Toaster />
+          <NotificationsProvider>
+            <RouterProvider router={router} />
+            <InstallPrompt />
+            <Toaster />
+          </NotificationsProvider>
         </AuthProvider>
         {import.meta.env.DEV ? <ReactQueryDevtools initialIsOpen={false} /> : null}
       </QueryClientProvider>
