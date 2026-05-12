@@ -147,10 +147,7 @@ In the Vercel UI:
 2. Name the project `vestra-marketing`.
 3. **Root Directory** → `apps/marketing`.
 4. Framework Preset: **Next.js** (auto-detected).
-5. **Build & Output Settings** → expand and override:
-   - Build Command: `cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @vestra/marketing build`
-   - Output Directory: `.next` (default — leave as-is)
-   - Install Command: leave empty (handled in build command)
+5. **Build & Output Settings** — `apps/marketing/vercel.json` already con tains the build command, install command, output dir (`.next`), and framework. Vercel reads it automatically; leave the UI fields empty
 6. **Environment Variables** (scope = Production):
    ```
    NEXT_PUBLIC_API_URL=https://api.vestra-financas.com.br/api/v1
