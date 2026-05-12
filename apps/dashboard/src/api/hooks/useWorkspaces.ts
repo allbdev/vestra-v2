@@ -33,3 +33,14 @@ export function useDeleteWorkspace() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["workspaces"] }),
   });
 }
+
+export function useCloneWorkspace() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.post<Workspace>(`/workspaces/${id}/clone`);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["workspaces"] }),
+  });
+}

@@ -52,6 +52,12 @@ export class WorkspacesController {
     await this.workspaces.softDelete(id);
   }
 
+  @UseGuards(WorkspaceOwnerGuard)
+  @Post(":id/clone")
+  clone(@Param("id") id: string, @CurrentUser() user: RequestUser) {
+    return this.workspaces.clone(id, user.id);
+  }
+
   @UseGuards(WorkspaceMemberGuard)
   @Get(":id/users")
   listUsers(@Param("id") id: string) {

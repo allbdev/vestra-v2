@@ -1,5 +1,17 @@
 import { useState } from "react";
-import { LogOut, Moon, Sun, Monitor, User, Plus, Pencil, Trash2, Users, Inbox } from "lucide-react";
+import {
+  LogOut,
+  Moon,
+  Sun,
+  Monitor,
+  User,
+  Plus,
+  Pencil,
+  Trash2,
+  Users,
+  Inbox,
+  Copy,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   Button,
@@ -32,9 +44,11 @@ import { AppNavShell } from "../../components/AppNav";
 import { useAuth } from "../../auth/AuthProvider";
 import { useWorkspace, type WorkspaceSummary } from "../../workspace/WorkspaceProvider";
 import {
+  useCloneWorkspace,
   useDeleteWorkspace,
   useRenameWorkspace,
 } from "../../api/hooks/useWorkspaces";
+import { AxiosError } from "axios";
 import { WorkspaceCreateSheet } from "../../components/sheets/WorkspaceCreateSheet";
 import { WorkspaceMembersSheet } from "../../components/sheets/WorkspaceMembersSheet";
 import { ConfirmDelete } from "../../components/ConfirmDelete";
@@ -55,6 +69,21 @@ export function SettingsPage() {
   const [managing, setManaging] = useState<WorkspaceSummary | null>(null);
   const renameMut = useRenameWorkspace();
   const deleteMut = useDeleteWorkspace();
+  const cloneMut = useCloneWorkspace();
+
+  const handleClone = async (workspace: WorkspaceSummary) => {
+    try {
+      const ws = await cloneMut.mutateAsync(workspace.id);
+      setActive(ws.id);
+      toast.success(`Workspace duplicado como "${ws.name}"`);
+    } catch (err) {
+      const msg =
+        err instanceof AxiosError && err.response?.status === 403
+          ? "Limite do plano atingido. Faça upgrade para Pro."
+          : "Falha ao duplicar workspace";
+      toast.error(msg);
+    }
+  };
   const invites = useMyInvites();
   const pendingInvites = invites.data?.length ?? 0;
 
@@ -129,6 +158,12 @@ export function SettingsPage() {
                         <>
                           <DropdownMenuItem onSelect={() => setRenaming(w)}>
                             <Pencil className="h-4 w-4" /> Renomear
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={cloneMut.isPending}
+                            onSelect={() => handleClone(w)}
+                          >
+                            <Copy className="h-4 w-4" /> Duplicar
                           </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => setDeleting(w)}>
                             <Trash2 className="h-4 w-4" /> Excluir
