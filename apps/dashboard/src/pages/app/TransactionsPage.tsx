@@ -8,6 +8,8 @@ import {
   Check,
   CircleOff,
   Filter,
+  Search,
+  X,
 } from "lucide-react";
 import {
   Badge,
@@ -23,6 +25,7 @@ import {
   ErrorState,
   Fab,
   FormField,
+  Input,
   PageSkeleton,
   Popover,
   PopoverContent,
@@ -46,6 +49,7 @@ import { useCategories } from "../../api/hooks/useCategories";
 import { TransactionFormSheet } from "../../components/sheets/TransactionFormSheet";
 import { ConfirmDelete } from "../../components/ConfirmDelete";
 import { formatMoney } from "../../lib/format";
+import { useDebouncedValue } from "../../lib/useDebouncedValue";
 import { toNumber, type Transaction } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 
@@ -93,6 +97,8 @@ export function TransactionsPage() {
   const [categoryId, setCategoryId] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending">("all");
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 250);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
@@ -113,14 +119,19 @@ export function TransactionsPage() {
 
   const filtered = useMemo(() => {
     const rows = list.data ?? [];
+    const term = debouncedSearch.trim().toLowerCase();
     return rows.filter((t) => {
       if (typeFilter === "income" && t.category?.type !== 1) return false;
       if (typeFilter === "expense" && t.category?.type !== 2) return false;
       if (statusFilter === "paid" && !t.isPaid) return false;
       if (statusFilter === "pending" && t.isPaid) return false;
+      if (term) {
+        const haystack = `${t.description} ${t.category?.name ?? ""}`.toLowerCase();
+        if (!haystack.includes(term)) return false;
+      }
       return true;
     });
-  }, [list.data, typeFilter, statusFilter]);
+  }, [list.data, typeFilter, statusFilter, debouncedSearch]);
 
   const groups = useMemo(() => groupByDay(filtered), [filtered]);
   const totals = useMemo(() => {
@@ -138,7 +149,8 @@ export function TransactionsPage() {
     (range?.from ? 1 : 0) +
     (categoryId !== "all" ? 1 : 0) +
     (typeFilter !== "all" ? 1 : 0) +
-    (statusFilter !== "all" ? 1 : 0);
+    (statusFilter !== "all" ? 1 : 0) +
+    (search.trim() ? 1 : 0);
 
   const filtersTrigger = (
     <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
@@ -163,6 +175,7 @@ export function TransactionsPage() {
                 setCategoryId("all");
                 setTypeFilter("all");
                 setStatusFilter("all");
+                setSearch("");
               }}
             >
               Limpar
@@ -227,54 +240,79 @@ export function TransactionsPage() {
 
   return (
     <AppNavShell topBar={<TopBar title="Lançamentos" trailing={filtersTrigger} />}>
-      <div className="mx-auto max-w-3xl space-y-4 px-4 py-4 md:px-6 md:py-6">
-        <div className="grid grid-cols-3 gap-2 text-center md:gap-3">
-          <SummaryTile label="Receitas" value={totals.income} tone="success" />
-          <SummaryTile label="Despesas" value={totals.expense} tone="destructive" />
-          <SummaryTile
-            label="Saldo"
-            value={totals.net}
-            tone={totals.net >= 0 ? "primary" : "destructive"}
-          />
-        </div>
-
-        {activeFilterCount > 0 ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {range?.from ? (
-              <Badge variant="outline" className="gap-1.5">
-                {range.to && range.to.getTime() !== range.from.getTime() ? (
-                  <>
-                    <DateDisplay date={toIsoDate(range.from)} /> –{" "}
-                    <DateDisplay date={toIsoDate(range.to)} />
-                  </>
-                ) : (
-                  <DateDisplay date={toIsoDate(range.from)} />
-                )}
-              </Badge>
-            ) : null}
-            {typeFilter !== "all" ? (
-              <Badge variant="outline">
-                {typeFilter === "income" ? "Receitas" : "Despesas"}
-              </Badge>
-            ) : null}
-            {statusFilter !== "all" ? (
-              <Badge variant="outline">
-                {statusFilter === "paid" ? "Pagos" : "Pendentes"}
-              </Badge>
-            ) : null}
-            {activeCategory ? (
-              <Badge variant="outline" className="gap-1.5">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: activeCategory.color ?? "#94a3b8" }}
-                  aria-hidden
-                />
-                {activeCategory.name}
-              </Badge>
+      <div className="mx-auto max-w-3xl">
+        <div className="sticky top-0 z-20 space-y-3 border-b border-border bg-background/90 px-4 py-4 backdrop-blur-md md:px-6 md:py-5">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por descrição ou categoria"
+              aria-label="Buscar lançamentos"
+              className="pl-9 pr-9"
+            />
+            {search ? (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Limpar busca"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X className="h-4 w-4" />
+              </button>
             ) : null}
           </div>
-        ) : null}
 
+          <div className="grid grid-cols-3 gap-2 text-center md:gap-3">
+            <SummaryTile label="Receitas" value={totals.income} tone="success" />
+            <SummaryTile label="Despesas" value={totals.expense} tone="destructive" />
+            <SummaryTile
+              label="Saldo"
+              value={totals.net}
+              tone={totals.net >= 0 ? "primary" : "destructive"}
+            />
+          </div>
+
+          {activeFilterCount > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {range?.from ? (
+                <Badge variant="outline" className="gap-1.5">
+                  {range.to && range.to.getTime() !== range.from.getTime() ? (
+                    <>
+                      <DateDisplay date={toIsoDate(range.from)} /> –{" "}
+                      <DateDisplay date={toIsoDate(range.to)} />
+                    </>
+                  ) : (
+                    <DateDisplay date={toIsoDate(range.from)} />
+                  )}
+                </Badge>
+              ) : null}
+              {typeFilter !== "all" ? (
+                <Badge variant="outline">
+                  {typeFilter === "income" ? "Receitas" : "Despesas"}
+                </Badge>
+              ) : null}
+              {statusFilter !== "all" ? (
+                <Badge variant="outline">
+                  {statusFilter === "paid" ? "Pagos" : "Pendentes"}
+                </Badge>
+              ) : null}
+              {activeCategory ? (
+                <Badge variant="outline" className="gap-1.5">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: activeCategory.color ?? "#94a3b8" }}
+                    aria-hidden
+                  />
+                  {activeCategory.name}
+                </Badge>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="space-y-4 px-4 py-4 md:px-6 md:py-6">
         {!active ? (
           <EmptyState
             icon={ArrowLeftRight}
@@ -395,6 +433,7 @@ export function TransactionsPage() {
             ))}
           </div>
         )}
+        </div>
       </div>
 
       {active ? (

@@ -104,6 +104,13 @@ export {
 
 export { Calendar, type CalendarProps } from "./components/ui/calendar";
 
+export {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "./components/ui/accordion";
+
 // Vestra composites
 export { DateDisplay, type DateDisplayProps } from "./components/ui/DateDisplay";
 
