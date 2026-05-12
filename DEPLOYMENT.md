@@ -18,16 +18,18 @@ All three frontends + API live under one registrable domain (`vestra-financas.co
 ## Prerequisites
 
 ```bash
-# Fly CLI
+# Fly CLI (required — only way to deploy to Fly)
 curl -L https://fly.io/install.sh | sh
 flyctl auth signup   # or: flyctl auth login
-
-# Vercel CLI
-pnpm dlx vercel@latest --version
-pnpm dlx vercel login
-
-# Repo must be pushed to GitHub (Vercel pulls from there)
 ```
+
+Vercel CLI is optional — everything below can be done from the Vercel web UI (vercel.com). Install only if you want `vercel logs` or `vercel env pull` locally:
+
+```bash
+pnpm dlx vercel@latest login
+```
+
+Repo must be pushed to GitHub (Vercel pulls source from there).
 
 Buy `vestra-financas.com.br` (or your chosen domain) at any registrar. You'll point its nameservers — or just an `A`/`CNAME` per subdomain — at Vercel + Fly later.
 
@@ -139,55 +141,37 @@ Both `apps/dashboard` and `apps/marketing` deploy as **separate Vercel projects*
 
 ### 2a. Marketing (`vestra-financas.com.br`)
 
-```bash
-cd apps/marketing
-vercel link        # create new project: "vestra-marketing"
-cd ../..
-```
+In the Vercel UI:
 
-When prompted in the CLI flow:
-- Framework preset: **Next.js** (auto-detected)
-- Root Directory: `apps/marketing`
-- Build Command: `cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @vestra/marketing build`
-- Output Directory: `.next`
-- Install Command: leave empty (handled in build command)
-
-Or set via Vercel dashboard: Project Settings → General → "Root Directory" `apps/marketing` + the build command above.
-
-Set env vars (Vercel dashboard → Settings → Environment Variables, scope = Production):
-
-```
-NEXT_PUBLIC_API_URL=https://api.vestra-financas.com.br/api/v1
-NEXT_PUBLIC_DASHBOARD_URL=https://app.vestra-financas.com.br
-```
-
-Push to `main`. First build runs.
-
-Attach domain: Project → Settings → Domains → add `vestra-financas.com.br` and `www.vestra-financas.com.br`. Vercel will print DNS records; point your registrar at them. Vercel issues the cert automatically.
+1. **vercel.com → Add New → Project** → import the GitHub repo.
+2. Name the project `vestra-marketing`.
+3. **Root Directory** → `apps/marketing`.
+4. Framework Preset: **Next.js** (auto-detected).
+5. **Build & Output Settings** → expand and override:
+   - Build Command: `cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @vestra/marketing build`
+   - Output Directory: `.next` (default — leave as-is)
+   - Install Command: leave empty (handled in build command)
+6. **Environment Variables** (scope = Production):
+   ```
+   NEXT_PUBLIC_API_URL=https://api.vestra-financas.com.br/api/v1
+   NEXT_PUBLIC_DASHBOARD_URL=https://app.vestra-financas.com.br
+   ```
+7. Click **Deploy**.
+8. After first build: **Project → Settings → Domains** → add `vestra-financas.com.br` and `www.vestra-financas.com.br`. Vercel shows the DNS records to set at your registrar.
 
 ### 2b. Dashboard (`app.vestra-financas.com.br`)
 
-```bash
-cd apps/dashboard
-vercel link        # create new project: "vestra-dashboard"
-cd ../..
-```
-
-`apps/dashboard/vercel.json` already contains the right `buildCommand`, `outputDirectory`, SPA rewrites, and cache headers. Vercel reads it on every deploy.
-
-Override in CLI/dashboard:
-- Framework preset: **Other** (not Vite — that preset assumes a single-project repo)
-- Root Directory: `apps/dashboard`
-
-Env vars (Production scope):
-
-```
-VITE_API_URL=https://api.vestra-financas.com.br/api/v1
-```
-
-Push to `main`. Build runs `pnpm --filter @vestra/dashboard build`.
-
-Attach domain: add `app.vestra-financas.com.br` in the project's domains tab. Add the printed `CNAME` (or `A`) to DNS.
+1. **vercel.com → Add New → Project** → import the same GitHub repo (Vercel allows multiple projects per repo).
+2. Name the project `vestra-dashboard`.
+3. **Root Directory** → `apps/dashboard`.
+4. Framework Preset: **Other** (not Vite — that preset assumes a single-project repo).
+5. **Build & Output Settings** — `apps/dashboard/vercel.json` already contains the right build command, output dir (`dist`), SPA rewrites, and cache headers. Vercel reads it automatically; leave the UI fields empty.
+6. **Environment Variables** (scope = Production):
+   ```
+   VITE_API_URL=https://api.vestra-financas.com.br/api/v1
+   ```
+7. Click **Deploy**.
+8. **Project → Settings → Domains** → add `app.vestra-financas.com.br`. Add the printed `CNAME` to DNS.
 
 ### 2c. Why two projects, not one
 
@@ -270,8 +254,8 @@ Create the token with `flyctl tokens create deploy -a vestra-api`, paste into Gi
 **Logs**
 ```bash
 flyctl logs -a vestra-api
-vercel logs https://vestra-dashboard.vercel.app  # last 1h
 ```
+Vercel logs: project page → **Deployments** tab → click deployment → **Runtime Logs** / **Build Logs**.
 
 **Roll back API**
 ```bash
