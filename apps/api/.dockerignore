@@ -1,0 +1,17 @@
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/.cache
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+**/tsconfig.tsbuildinfo
+**/.DS_Store
+.git
+.github
+.vscode
+.idea
+vestra_old

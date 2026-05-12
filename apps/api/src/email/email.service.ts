@@ -25,7 +25,7 @@ export class EmailService {
     } else {
       this.logger.warn("RESEND_API_KEY missing — emails will log instead of send");
     }
-    this.from = config.get<string>("EMAIL_FROM") ?? "Vestra <noreply@vestra.app>";
+    this.from = config.get<string>("EMAIL_FROM") ?? "Vestra <noreply@vestra-financas.com.br>";
     this.contactTo = config.get<string>("EMAIL_TO") || undefined;
     this.dashboardUrl = config.get<string>("DASHBOARD_URL") ?? "http://localhost:5173";
   }

@@ -70,14 +70,14 @@ Required for the NestJS API to boot. All variables are read by `ConfigService`.
 
 | Var | Type | Dev default | Notes |
 |---|---|---|---|
-| `COOKIE_DOMAIN` | string | `""` (empty = host-only) | Set on production. Example: `.vestra.app` so the cookie is shared between `app.vestra.app` and `api.vestra.app`. Leave empty for localhost. |
+| `COOKIE_DOMAIN` | string | `""` (empty = host-only) | Set on production. Example: `.vestra-financas.com.br` so the cookie is shared between `app.vestra-financas.com.br` and `api.vestra-financas.com.br`. Leave empty for localhost. |
 | `COOKIE_SECURE` | `"true" \| "false"` | `false` | **Must be `true` in production.** Browsers reject `secure` cookies on non-HTTPS, which is why this is `false` in dev. |
 
 ### CORS
 
 | Var | Type | Dev default | Notes |
 |---|---|---|---|
-| `CORS_ORIGINS` | comma-separated origins | `http://localhost:5173,http://localhost:3000` | Allowed origins for browser requests. **Order doesn't matter, but exact match required (scheme + host + port).** No trailing slash. In production: `https://app.vestra.app,https://www.vestra.app`. |
+| `CORS_ORIGINS` | comma-separated origins | `http://localhost:5173,http://localhost:3000` | Allowed origins for browser requests. **Order doesn't matter, but exact match required (scheme + host + port).** No trailing slash. In production: `https://app.vestra-financas.com.br,https://www.vestra-financas.com.br`. |
 
 ### Email (Resend)
 
@@ -108,7 +108,7 @@ The dashboard works out-of-the-box on `pnpm dev` because Vite proxies `/api` →
 
 | Var | Type | Notes |
 |---|---|---|
-| `VITE_API_URL` | url | API base URL incl. version. Example: `https://api.vestra.app/api/v1`. **Not** set in dev — the empty default + Vite proxy handles it. |
+| `VITE_API_URL` | url | API base URL incl. version. Example: `https://api.vestra-financas.com.br/api/v1`. **Not** set in dev — the empty default + Vite proxy handles it. |
 
 Vite exposes anything `VITE_*`-prefixed to the bundle. Never put secrets here; treat all `VITE_*` vars as public.
 
@@ -157,7 +157,7 @@ When deploying for real, every item below must be addressed:
 - [ ] Replace `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` with fresh `openssl rand -base64 48` values. **Different from each other.** Different from any previous deploy.
 - [ ] Replace `CRON_SECRET` with a fresh value.
 - [ ] Set `COOKIE_SECURE=true`. (Mandatory once on HTTPS.)
-- [ ] Set `COOKIE_DOMAIN` to your parent domain (e.g. `.vestra.app`) so the cookie is shared between the API and dashboard subdomains.
+- [ ] Set `COOKIE_DOMAIN` to your parent domain (e.g. `.vestra-financas.com.br`) so the cookie is shared between the API and dashboard subdomains.
 - [ ] `CORS_ORIGINS` lists only your real frontend origins, no `localhost`.
 - [ ] `DATABASE_URL` includes `?sslmode=require` and is read from a secret manager (not committed).
 - [ ] `RESEND_API_KEY` is set and `EMAIL_FROM` uses a verified domain.

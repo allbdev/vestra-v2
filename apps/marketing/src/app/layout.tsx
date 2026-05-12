@@ -9,7 +9,11 @@ export const metadata: Metadata = {
   title: "Vestra — Controle financeiro pessoal e compartilhado",
   description:
     "Acompanhe receitas, despesas e recorrências. Compartilhe workspaces com sua família. Mobile-first, instalável como app.",
-  metadataBase: new URL("https://vestra.app"),
+  metadataBase: new URL("https://vestra-financas.com.br"),
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
   openGraph: {
     title: "Vestra",
     description: "Controle financeiro pessoal e compartilhado.",

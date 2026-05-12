@@ -13,6 +13,7 @@ import { TransactionsModule } from "./transactions/transactions.module";
 import { PlansModule } from "./plans/plans.module";
 import { ContactModule } from "./contact/contact.module";
 import { CronModule } from "./cron/cron.module";
+import { HealthModule } from "./health/health.module";
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { CronModule } from "./cron/cron.module";
     PlansModule,
     ContactModule,
     CronModule,
+    HealthModule,
   ],
 })
 export class AppModule {}

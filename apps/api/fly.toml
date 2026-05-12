@@ -1,0 +1,46 @@
+# Fly.io config for @vestra/api.
+# Generated alongside DEPLOYMENT.md — see that file for full setup.
+
+app = "vestra-api"
+primary_region = "gru"  # São Paulo — closest to BR users
+
+[build]
+  dockerfile = "Dockerfile"
+  # Build context is `apps/api/`; flyctl --config flag must be passed
+  # together with `flyctl deploy --dockerfile apps/api/Dockerfile`
+  # while running from repo root. See DEPLOYMENT.md for the exact command.
+
+[deploy]
+  # Runs in a temporary VM using the just-built image.
+  # Reads DATABASE_URL from Fly secrets.
+  release_command = "prisma migrate deploy"
+  strategy = "rolling"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3001"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/api/v1/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
