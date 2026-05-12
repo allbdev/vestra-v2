@@ -9,7 +9,7 @@ End-to-end deploy guide for Vestra on Fly.io (API) + Vercel (dashboard + marketi
 | Marketing | apex + `www.` | `https://vestra-financas.com.br` | Vercel (Next.js 16) |
 | Dashboard | subdomain | `https://app.vestra-financas.com.br` | Vercel (Vite SPA) |
 | API | subdomain | `https://api.vestra-financas.com.br` | Fly.io (Docker) |
-| Postgres | private | inside Fly private network | Fly Managed Postgres |
+| Postgres | external | reachable via `DATABASE_URL` | Existing managed Postgres |
 
 All three frontends + API live under one registrable domain (`vestra-financas.com.br`). Lets the refresh-token cookie use `Domain=.vestra-financas.com.br` and `SameSite=Lax` — no `SameSite=None` needed.
 
@@ -35,7 +35,7 @@ Buy `vestra-financas.com.br` (or your chosen domain) at any registrar. You'll po
 
 ## 1. Backend — Fly.io
 
-### 1a. Provision the app + Postgres
+### 1a. Provision the Fly app
 
 From repo root:
 
@@ -52,41 +52,13 @@ flyctl launch \
 
 Confirm `apps/api/fly.toml` was kept (use the one already in the repo, don't let `launch` overwrite it).
 
-Provision Managed Postgres in the same region:
+The Postgres instance already exists; you just need its connection string. Make sure the string includes `?sslmode=require` for any non-private network DB. If your DB enforces an IP allowlist, add Fly's egress IPs (`flyctl ips list -a vestra-api` after `launch`, or use Fly's outbound-IP docs) before deploying.
 
-```bash
-flyctl postgres create \
-  --name vestra-db \
-  --region gru \
-  --initial-cluster-size 1 \
-  --vm-size shared-cpu-1x \
-  --volume-size 10
-```
-
-Save the credentials output (you only see them once). Attach the DB to the API — this writes `DATABASE_URL` into the API's secrets automatically:
-
-```bash
-flyctl postgres attach vestra-db --app vestra-api
-```
-
-`DATABASE_URL` now points at the private network host (`vestra-db.internal`), no public exposure.
-
-### 1b. Seed schema (one-time)
-
-If this is a fresh DB (no data to migrate from `vestra_old`):
-
-```bash
-flyctl ssh console -a vestra-api -C "prisma migrate deploy"
-```
-
-If you're cutting over from the existing `vestra_old` Postgres, dump and restore first, then run `prisma migrate resolve` to mark all baseline migrations as applied (see Cutover section).
-
-Going forward every deploy auto-runs `prisma migrate deploy` via `release_command` in `fly.toml` — no manual step needed.
-
-### 1c. Set non-DB secrets
+### 1b. Set secrets
 
 ```bash
 flyctl secrets set -a vestra-api \
+  DATABASE_URL="postgresql://USER:PASS@HOST:5432/DB?sslmode=require" \
   JWT_ACCESS_SECRET="$(openssl rand -base64 48)" \
   JWT_REFRESH_SECRET="$(openssl rand -base64 48)" \
   JWT_ACCESS_TTL="15m" \
@@ -104,7 +76,9 @@ flyctl secrets set -a vestra-api \
 
 Re-running `flyctl secrets set` triggers a rolling restart. Both JWT secrets must be different (`openssl rand` called twice produces two distinct values; verify with `flyctl secrets list -a vestra-api`).
 
-### 1d. First deploy
+Migrations run automatically on every deploy via `release_command = "prisma migrate deploy"` in `fly.toml` — no manual seed step. If your existing DB already contains the legacy schema and you don't want migrations re-applied, run `flyctl ssh console -a vestra-api -C "prisma migrate resolve --applied <migration_name>"` once per existing migration **before** the first deploy.
+
+### 1c. First deploy
 
 From repo root:
 
@@ -123,7 +97,7 @@ curl https://vestra-api.fly.dev/api/v1/health
 # {"status":"ok","uptime":12,"db":"ok","time":"..."}
 ```
 
-### 1e. Custom API subdomain
+### 1d. Custom API subdomain
 
 ```bash
 flyctl certs create -a vestra-api api.vestra-financas.com.br
@@ -138,7 +112,7 @@ Verify:
 curl https://api.vestra-financas.com.br/api/v1/health
 ```
 
-### 1f. Scaling defaults
+### 1e. Scaling defaults
 
 `fly.toml` ships with:
 - 1 shared CPU, 512 MB RAM
@@ -291,36 +265,7 @@ Create the token with `flyctl tokens create deploy -a vestra-api`, paste into Gi
 
 ---
 
-## 6. Cutover from `vestra_old`
-
-Only if migrating an existing production DB.
-
-```bash
-# 1. Dump from local docker postgres (or wherever vestra_old runs)
-pg_dump --no-owner --no-acl -Fc \
-  "postgresql://user:password@localhost:5432/vestra" \
-  > vestra-snapshot.dump
-
-# 2. Proxy to Fly Postgres
-flyctl proxy 5433:5432 -a vestra-db &
-
-# 3. Restore (credentials from `flyctl postgres attach` output)
-pg_restore \
-  --no-owner --no-acl \
-  -d "postgresql://<user>:<pass>@localhost:5433/vestra" \
-  vestra-snapshot.dump
-
-# 4. Mark all baseline migrations as applied (don't re-run)
-flyctl ssh console -a vestra-api -C \
-  "prisma migrate resolve --applied 20260130152842_init_postgres"
-# Repeat for every existing migration name in apps/api/prisma/migrations/
-```
-
-After cutover, the next `prisma migrate deploy` (auto-run on next Fly release) applies only migrations newer than the latest `resolve`d one.
-
----
-
-## 7. Operating notes
+## 6. Operating notes
 
 **Logs**
 ```bash
@@ -336,11 +281,6 @@ flyctl deploy --image <prev-image>     # redeploy previous image
 
 **Roll back Vercel** — Deployments tab → previous → "Promote to Production".
 
-**Open a psql against prod**
-```bash
-flyctl postgres connect -a vestra-db
-```
-
 **Rotate JWT secrets** — `flyctl secrets set JWT_ACCESS_SECRET=...` invalidates every active access token (effectively logs everyone out within 15 min). Rotate refresh secret too if you suspect compromise; that kills every session immediately.
 
 **Inspect a one-off task in the prod image**
@@ -351,14 +291,14 @@ flyctl ssh console -a vestra-api
 
 ---
 
-## 8. Troubleshooting
+## 7. Troubleshooting
 
 **Fly build "no space left on device"** — Fly's remote builder runs low; pass `--local-only` to build on your laptop:
 ```bash
 flyctl deploy --local-only --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
 ```
 
-**`release_command` fails with "Can't reach database server"** — `DATABASE_URL` secret wasn't set yet. Run `flyctl postgres attach vestra-db --app vestra-api`, then `flyctl deploy` again.
+**`release_command` fails with "Can't reach database server"** — Either `DATABASE_URL` secret is wrong/missing, or your DB blocks Fly's egress IPs. Verify with `flyctl secrets list -a vestra-api`; confirm the URL works from your laptop via `psql "$DATABASE_URL"`; allowlist Fly's outbound IPs at the DB provider.
 
 **Prisma can't find schema during release** — Check Dockerfile copied `prisma.config.ts` + `prisma/` into the runner stage. Both must land in `/app/`.
 
@@ -377,7 +317,7 @@ flyctl deploy --local-only --config apps/api/fly.toml --dockerfile apps/api/Dock
 
 ---
 
-## 9. Quick reference
+## 8. Quick reference
 
 ```bash
 # Deploy api
@@ -387,9 +327,6 @@ flyctl deploy -a vestra-api --config apps/api/fly.toml --dockerfile apps/api/Doc
 
 # Tail logs
 flyctl logs -a vestra-api
-
-# DB shell
-flyctl postgres connect -a vestra-db
 
 # Set secret
 flyctl secrets set -a vestra-api KEY=value
