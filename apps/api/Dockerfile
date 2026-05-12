@@ -3,7 +3,6 @@
 
 ARG NODE_VERSION=22-alpine
 ARG PNPM_VERSION=10.28.2
-ARG PRISMA_VERSION=7.3.0
 
 # ---------- base ----------
 FROM node:${NODE_VERSION} AS base
@@ -17,35 +16,37 @@ RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 FROM base AS builder
 WORKDIR /repo
 
-# Copy lockfile + workspace manifests first (better layer cache)
+# Build-time placeholder. apps/api/postinstall runs `prisma generate`,
+# which loads prisma.config.ts → eager env("DATABASE_URL"). Real URL
+# is provided at runtime by Fly secrets.
+ENV DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
+
+# Workspace manifest + lockfile + sources up front so postinstall
+# (prisma generate) sees the schema. pnpm store stays cached across
+# builds via the cache mount, so re-installs are still fast.
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY apps/api/package.json apps/api/
-COPY packages/types/package.json packages/types/
-COPY packages/tsconfig/package.json packages/tsconfig/
-COPY packages/eslint-config/package.json packages/eslint-config/
-
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile
-
-# Copy sources
 COPY apps/api apps/api
 COPY packages packages
 
-# Build + prune to prod deps in /out
+# Install only api + its transitive workspace deps (skips dashboard/marketing/ui).
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --filter @vestra/api...
+
+# Build + prune to prod deps in /out.
+# --legacy because pnpm 10 dropped non-injected workspace deploy by default
+# (would otherwise need `inject-workspace-packages=true` in workspace config).
 RUN pnpm --filter @vestra/api build \
- && pnpm --filter @vestra/api --prod deploy /out
+ && pnpm --filter @vestra/api --prod --legacy deploy /out
 
 # ---------- runner ----------
 FROM node:${NODE_VERSION} AS runner
 RUN apk add --no-cache openssl libc6-compat tini
 ENV NODE_ENV=production
 ENV PORT=3001
+# Make local node_modules/.bin first on PATH so `prisma migrate deploy`
+# in fly.toml release_command resolves to /app/node_modules/.bin/prisma.
+ENV PATH=/app/node_modules/.bin:$PATH
 WORKDIR /app
-
-# Prisma CLI in runtime — used by Fly release_command for `migrate deploy`.
-# Pinned to match @prisma/client major. ~80MB; acceptable.
-ARG PRISMA_VERSION
-RUN npm i -g prisma@${PRISMA_VERSION}
 
 COPY --from=builder /out/package.json ./
 COPY --from=builder /out/node_modules ./node_modules

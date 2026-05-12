@@ -1,46 +1,44 @@
-# Fly.io config for @vestra/api.
-# Generated alongside DEPLOYMENT.md — see that file for full setup.
+# fly.toml app configuration file generated for vestra-api on 2026-05-12T11:41:24-03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "vestra-api"
-primary_region = "gru"  # São Paulo — closest to BR users
+app = 'vestra-api'
+primary_region = 'gru'
 
-[build]
-  dockerfile = "Dockerfile"
-  # Build context is `apps/api/`; flyctl --config flag must be passed
-  # together with `flyctl deploy --dockerfile apps/api/Dockerfile`
-  # while running from repo root. See DEPLOYMENT.md for the exact command.
+# Dockerfile + build context passed via CLI flags so paths stay relative to
+# repo root (the Dockerfile COPYs pnpm-workspace.yaml + packages/* from there).
+# See DEPLOYMENT.md §1c.
 
 [deploy]
-  # Runs in a temporary VM using the just-built image.
-  # Reads DATABASE_URL from Fly secrets.
-  release_command = "prisma migrate deploy"
-  strategy = "rolling"
+  strategy = 'rolling'
+  release_command = 'prisma migrate deploy'
 
 [env]
-  NODE_ENV = "production"
-  PORT = "3001"
+  NODE_ENV = 'production'
+  PORT = '3001'
 
 [http_service]
   internal_port = 3001
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 1
-  processes = ["app"]
+  processes = ['app']
 
   [http_service.concurrency]
-    type = "requests"
-    soft_limit = 200
+    type = 'requests'
     hard_limit = 250
+    soft_limit = 200
 
   [[http_service.checks]]
-    grace_period = "15s"
-    interval = "30s"
-    method = "GET"
-    timeout = "5s"
-    path = "/api/v1/health"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '15s'
+    method = 'GET'
+    path = '/api/v1/health'
 
 [[vm]]
-  cpu_kind = "shared"
+  memory = '512mb'
   cpus = 1
   memory_mb = 512

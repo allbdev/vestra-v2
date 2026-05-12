@@ -1,0 +1,85 @@
+# flyctl launch added from .gitignore
+**/node_modules
+**/.pnpm-store
+
+# Build outputs
+**/dist
+**/build
+**/.next
+**/out
+**/coverage
+
+# Turbo
+**/.turbo
+
+# Env
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Editor / OS
+**/.DS_Store
+**/.idea
+**/.vscode
+**/*.swp
+
+# Logs
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/pnpm-debug.log*
+
+# Prisma generated
+**/**/generated/prisma
+
+# TS build info
+**/*.tsbuildinfo
+
+
+**/vestra_old
+
+# flyctl launch added from vestra_old/.gitignore
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+vestra_old/node_modules
+vestra_old/.pnp
+vestra_old/**/.pnp.*
+vestra_old/**/.yarn/*
+!vestra_old/**/.yarn/patches
+!vestra_old/**/.yarn/plugins
+!vestra_old/**/.yarn/releases
+!vestra_old/**/.yarn/versions
+
+# testing
+vestra_old/coverage
+
+# next.js
+vestra_old/.next
+vestra_old/out
+
+# production
+vestra_old/build
+
+# misc
+vestra_old/**/.DS_Store
+vestra_old/**/*.pem
+
+# debug
+vestra_old/**/npm-debug.log*
+vestra_old/**/yarn-debug.log*
+vestra_old/**/yarn-error.log*
+vestra_old/**/.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+vestra_old/**/.env*
+
+# vercel
+vestra_old/**/.vercel
+
+# typescript
+vestra_old/**/*.tsbuildinfo
+vestra_old/**/next-env.d.ts
+
+vestra_old/app/generated/prisma
+fly.toml

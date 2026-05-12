@@ -71,9 +71,9 @@ flyctl secrets set -a vestra-api \
   CORS_ORIGINS="https://app.vestra-financas.com.br,https://vestra-financas.com.br,https://www.vestra-financas.com.br" \
   RESEND_API_KEY="re_XXXX" \
   EMAIL_FROM="Vestra <noreply@vestra-financas.com.br>" \
-  EMAIL_TO="contact@vestra-financas.com.br" \
+  EMAIL_TO="vini.alb13@gmail.com" \
   APP_URL="https://vestra-financas.com.br" \
-  DASHBOARD_URL="https://app.vestra-financas.com.br"
+  DASHBOARD_URL="https://www.app.vestra-financas.com.br"
 ```
 
 Re-running `flyctl secrets set` triggers a rolling restart. Both JWT secrets must be different (`openssl rand` called twice produces two distinct values; verify with `flyctl secrets list -a vestra-api`).
@@ -82,15 +82,16 @@ Migrations run automatically on every deploy via `release_command = "prisma migr
 
 ### 1c. First deploy
 
-From repo root:
+**Must run from repo root** — Dockerfile COPYs `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `apps/api/`, and `packages/*`, all relative to repo root.
 
 ```bash
-flyctl deploy -a vestra-api \
+cd /path/to/vestra
+flyctl deploy . \
   --config apps/api/fly.toml \
   --dockerfile apps/api/Dockerfile
 ```
 
-Build context is the repo root (Dockerfile needs `pnpm-workspace.yaml`, `pnpm-lock.yaml`, and `packages/*`). Build ~3-5 min the first time; cached pnpm store keeps subsequent builds at 60-90s.
+The positional `.` sets the **build context** to the current directory (repo root). `--dockerfile apps/api/Dockerfile` and `--config apps/api/fly.toml` are resolved relative to that. Build ~3-5 min the first time; cached pnpm store keeps subsequent builds at 60-90s.
 
 Once the release machine prints `release_command succeeded` and the app machine becomes healthy:
 
@@ -237,7 +238,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
+      - run: flyctl deploy . --remote-only --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 ```
@@ -276,7 +277,7 @@ flyctl ssh console -a vestra-api
 
 **Fly build "no space left on device"** — Fly's remote builder runs low; pass `--local-only` to build on your laptop:
 ```bash
-flyctl deploy --local-only --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
+flyctl deploy . --local-only --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
 ```
 
 **`release_command` fails with "Can't reach database server"** — Either `DATABASE_URL` secret is wrong/missing, or your DB blocks Fly's egress IPs. Verify with `flyctl secrets list -a vestra-api`; confirm the URL works from your laptop via `psql "$DATABASE_URL"`; allowlist Fly's outbound IPs at the DB provider.
@@ -301,8 +302,8 @@ flyctl deploy --local-only --config apps/api/fly.toml --dockerfile apps/api/Dock
 ## 8. Quick reference
 
 ```bash
-# Deploy api
-flyctl deploy -a vestra-api --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
+# Deploy api (must run from repo root)
+flyctl deploy . --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
 
 # Deploy frontends — push to main; Vercel auto-builds.
 
