@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile --filter @vestra/marketing...",
   "buildCommand": "cd ../.. && pnpm --filter @vestra/marketing build",
   "outputDirectory": ".next",
   "framework": "nextjs"
