@@ -42,8 +42,10 @@ async function bootstrap() {
   }
 
   const port = Number(config.get("PORT") ?? 3001);
-  await app.listen(port);
-  console.log(`[api] listening on http://localhost:${port}/api/v1`);
+  // Bind to 0.0.0.0 so Fly's internal proxy (IPv6/private net) can reach us.
+  // Defaulting to "localhost" silently makes the machine unreachable on Fly.
+  await app.listen(port, "0.0.0.0");
+  console.log(`[api] listening on 0.0.0.0:${port}/api/v1`);
 }
 
 void bootstrap();

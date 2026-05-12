@@ -32,11 +32,17 @@ COPY packages packages
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --filter @vestra/api...
 
-# Build + prune to prod deps in /out.
+# Build api + every workspace dep that has a build script (e.g. @vestra/types).
+# -r --filter @vestra/api... walks the dep graph topologically.
+# Then prune to prod deps in /out.
 # --legacy because pnpm 10 dropped non-injected workspace deploy by default
 # (would otherwise need `inject-workspace-packages=true` in workspace config).
-RUN pnpm --filter @vestra/api build \
- && pnpm --filter @vestra/api --prod --legacy deploy /out
+# After deploy, re-run `prisma generate` against /out so the generated
+# `.prisma/client` lives inside the runtime node_modules (pnpm deploy
+# doesn't re-fire postinstalls).
+RUN pnpm -r --filter "@vestra/api..." build \
+ && pnpm --filter @vestra/api --prod --legacy deploy /out \
+ && cd /out && node_modules/.bin/prisma generate
 
 # ---------- runner ----------
 FROM node:${NODE_VERSION} AS runner
