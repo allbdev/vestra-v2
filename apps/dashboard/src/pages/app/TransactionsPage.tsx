@@ -27,6 +27,7 @@ import {
   Fab,
   FormField,
   Input,
+  MultiSelect,
   PageSkeleton,
   Popover,
   PopoverContent,
@@ -51,6 +52,7 @@ import { TransactionFormSheet } from "../../components/sheets/TransactionFormShe
 import { ConfirmDelete } from "../../components/ConfirmDelete";
 import { formatMoney } from "../../lib/format";
 import { useDebouncedValue } from "../../lib/useDebouncedValue";
+import { listParam, stringParam, useUrlFilters } from "../../lib/useUrlFilters";
 import { toNumber, type Transaction } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 
@@ -77,11 +79,11 @@ function groupByDay(items: Transaction[]): GroupedDay[] {
   return Array.from(map.values()).sort((a, b) => (a.date > b.date ? -1 : 1));
 }
 
-function defaultRange(): DateRange {
+function defaultFromTo(): { from: string; to: string } {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth(), 1);
   const to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { from, to };
+  return { from: toIsoDate(from), to: toIsoDate(to) };
 }
 
 function toIsoDate(d: Date): string {
@@ -91,48 +93,77 @@ function toIsoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function parseIsoLocal(value: string): Date | undefined {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!m) return undefined;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
 export function TransactionsPage() {
   const { active } = useWorkspace();
   const { user } = useAuth();
-  const [range, setRange] = useState<DateRange | undefined>(defaultRange);
-  const [categoryId, setCategoryId] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "paid" | "pending">("all");
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search, 250);
+
+  const filters = useUrlFilters({
+    from: stringParam("from"),
+    to: stringParam("to"),
+    categoryIds: listParam("categoryIds"),
+    type: stringParam("type"),
+    status: stringParam("status"),
+    q: stringParam("q"),
+  });
+  const { values, set, patch, clearAll } = filters;
+
+  const effectiveRange: { from: string; to: string } = useMemo(() => {
+    if (values.from || values.to) {
+      return { from: values.from, to: values.to || values.from };
+    }
+    return defaultFromTo();
+  }, [values.from, values.to]);
+
+  const range: DateRange | undefined = useMemo(() => {
+    const f = parseIsoLocal(effectiveRange.from);
+    const t = parseIsoLocal(effectiveRange.to);
+    if (!f) return undefined;
+    return { from: f, to: t ?? f };
+  }, [effectiveRange]);
+
+  const debouncedSearch = useDebouncedValue(values.q, 250);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<Transaction | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const workspaceId = active?.id ?? "";
-  const from = range?.from ? toIsoDate(range.from) : undefined;
-  const to = range?.to ? toIsoDate(range.to) : range?.from ? toIsoDate(range.from) : undefined;
 
   const list = useTransactions(workspaceId || null, {
-    from,
-    to,
-    categoryId: categoryId === "all" ? undefined : categoryId,
+    from: effectiveRange.from || undefined,
+    to: effectiveRange.to || undefined,
   });
   const { data: categories = [] } = useCategories(workspaceId || null);
   const update = useUpdateTransaction(workspaceId);
   const del = useDeleteTransaction(workspaceId);
 
+  const categoryFilterSet = useMemo(() => new Set(values.categoryIds), [values.categoryIds]);
+
   const filtered = useMemo(() => {
     const rows = list.data ?? [];
     const term = debouncedSearch.trim().toLowerCase();
     return rows.filter((t) => {
-      if (typeFilter === "income" && t.category?.type !== 1) return false;
-      if (typeFilter === "expense" && t.category?.type !== 2) return false;
-      if (statusFilter === "paid" && !t.isPaid) return false;
-      if (statusFilter === "pending" && t.isPaid) return false;
+      if (values.type === "income" && t.category?.type !== 1) return false;
+      if (values.type === "expense" && t.category?.type !== 2) return false;
+      if (values.status === "paid" && !t.isPaid) return false;
+      if (values.status === "pending" && t.isPaid) return false;
+      if (categoryFilterSet.size > 0) {
+        const id = t.categoryId ?? "__none";
+        if (!categoryFilterSet.has(id)) return false;
+      }
       if (term) {
         const haystack = `${t.description} ${t.category?.name ?? ""}`.toLowerCase();
         if (!haystack.includes(term)) return false;
       }
       return true;
     });
-  }, [list.data, typeFilter, statusFilter, debouncedSearch]);
+  }, [list.data, values.type, values.status, categoryFilterSet, debouncedSearch]);
 
   const groups = useMemo(() => groupByDay(filtered), [filtered]);
   const totals = useMemo(() => {
@@ -146,12 +177,13 @@ export function TransactionsPage() {
     return { income, expense, net: income - expense };
   }, [filtered]);
 
+  const hasCustomRange = !!values.from || !!values.to;
   const activeFilterCount =
-    (range?.from ? 1 : 0) +
-    (categoryId !== "all" ? 1 : 0) +
-    (typeFilter !== "all" ? 1 : 0) +
-    (statusFilter !== "all" ? 1 : 0) +
-    (search.trim() ? 1 : 0);
+    (hasCustomRange ? 1 : 0) +
+    (values.categoryIds.length > 0 ? 1 : 0) +
+    (values.type ? 1 : 0) +
+    (values.status ? 1 : 0) +
+    (values.q.trim() ? 1 : 0);
 
   const filtersTrigger = (
     <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
@@ -167,31 +199,25 @@ export function TransactionsPage() {
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Filtros</h3>
           {activeFilterCount > 0 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setRange(undefined);
-                setCategoryId("all");
-                setTypeFilter("all");
-                setStatusFilter("all");
-                setSearch("");
-              }}
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={clearAll}>
               Limpar
             </Button>
           ) : null}
         </div>
         <div className="space-y-4">
           <FormField label="Período">
-            <DateRangePicker value={range} onValueChange={setRange} />
+            <DateRangePicker
+              value={range}
+              onValueChange={(r) =>
+                patch({
+                  from: r?.from ? toIsoDate(r.from) : "",
+                  to: r?.to ? toIsoDate(r.to) : r?.from ? toIsoDate(r.from) : "",
+                })
+              }
+            />
           </FormField>
           <FormField label="Tipo">
-            <Select
-              value={typeFilter}
-              onValueChange={(v) => setTypeFilter(v as "all" | "income" | "expense")}
-            >
+            <Select value={values.type || "all"} onValueChange={(v) => set("type", v === "all" ? "" : v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -203,10 +229,7 @@ export function TransactionsPage() {
             </Select>
           </FormField>
           <FormField label="Status">
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v as "all" | "paid" | "pending")}
-            >
+            <Select value={values.status || "all"} onValueChange={(v) => set("status", v === "all" ? "" : v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -217,27 +240,25 @@ export function TransactionsPage() {
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Categoria">
-            <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas categorias</SelectItem>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <FormField label="Categorias">
+            <MultiSelect
+              options={categories.map((c) => ({
+                value: c.id,
+                label: c.name,
+                color: c.color ?? null,
+                hint: c.type === 1 ? "Receita" : "Despesa",
+              }))}
+              value={values.categoryIds}
+              onValueChange={(next) => set("categoryIds", next)}
+              placeholder="Todas categorias"
+            />
           </FormField>
         </div>
       </PopoverContent>
     </Popover>
   );
 
-  const activeCategory = categories.find((c) => c.id === categoryId);
+  const selectedCategories = categories.filter((c) => categoryFilterSet.has(c.id));
 
   return (
     <AppNavShell topBar={<TopBar title="Lançamentos" trailing={filtersTrigger} />}>
@@ -247,16 +268,16 @@ export function TransactionsPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={values.q}
+              onChange={(e) => set("q", e.target.value)}
               placeholder="Buscar por descrição ou categoria"
               aria-label="Buscar lançamentos"
               className="pl-9 pr-9"
             />
-            {search ? (
+            {values.q ? (
               <button
                 type="button"
-                onClick={() => setSearch("")}
+                onClick={() => set("q", "")}
                 aria-label="Limpar busca"
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
@@ -277,38 +298,46 @@ export function TransactionsPage() {
 
           {activeFilterCount > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
-              {range?.from ? (
-                <Badge variant="outline" className="gap-1.5">
-                  {range.to && range.to.getTime() !== range.from.getTime() ? (
+              {hasCustomRange ? (
+                <FilterChip onClear={() => patch({ from: "", to: "" })}>
+                  {values.to && values.to !== values.from ? (
                     <>
-                      <DateDisplay date={toIsoDate(range.from)} /> –{" "}
-                      <DateDisplay date={toIsoDate(range.to)} />
+                      <DateDisplay date={effectiveRange.from} /> –{" "}
+                      <DateDisplay date={effectiveRange.to} />
                     </>
                   ) : (
-                    <DateDisplay date={toIsoDate(range.from)} />
+                    <DateDisplay date={effectiveRange.from} />
                   )}
-                </Badge>
+                </FilterChip>
               ) : null}
-              {typeFilter !== "all" ? (
-                <Badge variant="outline">
-                  {typeFilter === "income" ? "Receitas" : "Despesas"}
-                </Badge>
+              {values.type ? (
+                <FilterChip onClear={() => set("type", "")}>
+                  {values.type === "income" ? "Receitas" : "Despesas"}
+                </FilterChip>
               ) : null}
-              {statusFilter !== "all" ? (
-                <Badge variant="outline">
-                  {statusFilter === "paid" ? "Pagos" : "Pendentes"}
-                </Badge>
+              {values.status ? (
+                <FilterChip onClear={() => set("status", "")}>
+                  {values.status === "paid" ? "Pagos" : "Pendentes"}
+                </FilterChip>
               ) : null}
-              {activeCategory ? (
-                <Badge variant="outline" className="gap-1.5">
+              {selectedCategories.map((c) => (
+                <FilterChip
+                  key={c.id}
+                  onClear={() =>
+                    set(
+                      "categoryIds",
+                      values.categoryIds.filter((id) => id !== c.id),
+                    )
+                  }
+                >
                   <span
                     className="h-2 w-2 rounded-full"
-                    style={{ backgroundColor: activeCategory.color ?? "#94a3b8" }}
+                    style={{ backgroundColor: c.color ?? "#94a3b8" }}
                     aria-hidden
                   />
-                  {activeCategory.name}
-                </Badge>
-              ) : null}
+                  {c.name}
+                </FilterChip>
+              ))}
             </div>
           ) : null}
         </div>
@@ -481,6 +510,22 @@ export function TransactionsPage() {
         </>
       ) : null}
     </AppNavShell>
+  );
+}
+
+function FilterChip({ children, onClear }: { children: React.ReactNode; onClear: () => void }) {
+  return (
+    <Badge variant="outline" className="gap-1.5 pr-1">
+      {children}
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label="Remover filtro"
+        className="ml-0.5 rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </Badge>
   );
 }
 

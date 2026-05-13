@@ -124,6 +124,11 @@ export {
   type DateRange,
 } from "./components/form/DateRangePicker";
 export { DatePicker, type DatePickerProps } from "./components/form/DatePicker";
+export {
+  MultiSelect,
+  type MultiSelectProps,
+  type MultiSelectOption,
+} from "./components/form/MultiSelect";
 
 // Layout
 export { TopBar, type TopBarProps } from "./components/layout/TopBar";
