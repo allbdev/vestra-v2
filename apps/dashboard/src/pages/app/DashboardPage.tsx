@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import {
-  TrendingUp,
-  TrendingDown,
-  Wallet,
   Activity,
+  Filter,
   Plus,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+  Wallet,
 } from "lucide-react";
 import {
   Bar,
@@ -28,65 +30,109 @@ import {
   CardHeader,
   CardTitle,
   ChartTooltip,
+  DateRangePicker,
+  type DateRange,
   EmptyState,
   ErrorState,
   Fab,
+  FormField,
   PageSkeleton,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   TopBar,
 } from "@vestra/ui";
 import { AppNavShell } from "../../components/AppNav";
 import { useWorkspace } from "../../workspace/WorkspaceProvider";
 import { useAuth } from "../../auth/AuthProvider";
-import { useTransactions } from "../../api/hooks/useTransactions";
-import { useCategories } from "../../api/hooks/useCategories";
+import {
+  useDashboard,
+  type AccumulatedChartPoint,
+  type CategoryBreakdownPoint,
+  type DashboardResponse,
+  type PeriodChartPoint,
+} from "../../api/hooks/useDashboard";
 import { TransactionFormSheet } from "../../components/sheets/TransactionFormSheet";
 import { WorkspaceCreateSheet } from "../../components/sheets/WorkspaceCreateSheet";
 import { formatMoney, formatMoneyCompact } from "../../lib/format";
-import { toNumber } from "../../api/types";
+import { stringParam, useUrlFilters } from "../../lib/useUrlFilters";
 
-interface KPI {
-  label: string;
-  value: number;
-  count?: number;
-  icon: typeof TrendingUp;
-  tone: "primary" | "success" | "destructive" | "muted";
+function toIsoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-const today = new Date();
-const yearStart = `${today.getFullYear()}-01-01`;
-const yearEnd = `${today.getFullYear()}-12-31`;
+function parseIsoLocal(value: string): Date | undefined {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!m) return undefined;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
 
 export function DashboardPage() {
   const { user } = useAuth();
   const { active, workspaces, isLoading: workspacesLoading } = useWorkspace();
   const [creating, setCreating] = useState(false);
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const txs = useTransactions(active?.id ?? null, { from: yearStart, to: yearEnd });
+  const { values, patch, clearAll } = useUrlFilters({
+    from: stringParam("from"),
+    to: stringParam("to"),
+  });
 
-  const stats = useMemo(() => {
-    const list = txs.data ?? [];
-    let income = 0;
-    let expense = 0;
-    for (const t of list) {
-      const amount = toNumber(t.amount);
-      if (t.category?.type === 1) income += amount;
-      else expense += amount;
-    }
-    return { income, expense, net: income - expense, count: list.length };
-  }, [txs.data]);
+  const dashboard = useDashboard(active?.id ?? null, {
+    from: values.from || undefined,
+    to: values.to || undefined,
+  });
+  const data = dashboard.data;
 
-  const kpis: KPI[] = [
-    {
-      label: "Saldo (ano)",
-      value: stats.net,
-      icon: Wallet,
-      tone: stats.net >= 0 ? "primary" : "destructive",
-    },
-    { label: "Receitas", value: stats.income, icon: TrendingUp, tone: "success" },
-    { label: "Despesas", value: stats.expense, icon: TrendingDown, tone: "destructive" },
-    { label: "Lançamentos", value: stats.count, count: stats.count, icon: Activity, tone: "muted" },
-  ];
+  const pickerRange: DateRange | undefined = useMemo(() => {
+    const fromDate = values.from ? parseIsoLocal(values.from) : undefined;
+    const toDate = values.to ? parseIsoLocal(values.to) : undefined;
+    if (!fromDate && !toDate) return undefined;
+    return { from: fromDate ?? toDate!, to: toDate ?? fromDate! };
+  }, [values.from, values.to]);
+
+  const isCustomRange = !!values.from || !!values.to;
+
+  const filterTrigger = (
+    <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Filtros" className="relative">
+          <Filter className="h-5 w-5" />
+          {isCustomRange ? (
+            <span
+              className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary"
+              aria-hidden
+            />
+          ) : null}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Filtros</h3>
+          {isCustomRange ? (
+            <Button type="button" variant="ghost" size="sm" onClick={clearAll}>
+              Limpar
+            </Button>
+          ) : null}
+        </div>
+        <FormField label="Período">
+          <DateRangePicker
+            value={pickerRange}
+            onValueChange={(range) =>
+              patch({
+                from: range?.from ? toIsoDate(range.from) : "",
+                to: range?.to ? toIsoDate(range.to) : range?.from ? toIsoDate(range.from) : "",
+              })
+            }
+          />
+        </FormField>
+      </PopoverContent>
+    </Popover>
+  );
 
   return (
     <AppNavShell
@@ -95,16 +141,11 @@ export function DashboardPage() {
           large
           title={`Olá, ${user?.name?.split(" ")[0] ?? ""}`}
           subtitle={active ? active.name : "Selecione um workspace"}
+          trailing={active ? filterTrigger : undefined}
         />
       }
     >
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-4 md:px-6 md:py-6">
-        <section className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-          {kpis.map((kpi) => (
-            <KPICard key={kpi.label} kpi={kpi} />
-          ))}
-        </section>
-
         {workspacesLoading ? (
           <PageSkeleton />
         ) : workspaces.length === 0 ? (
@@ -118,36 +159,16 @@ export function DashboardPage() {
               </Button>
             }
           />
-        ) : !active ? null : txs.isLoading ? (
+        ) : !active ? null : dashboard.isLoading ? (
           <PageSkeleton />
-        ) : txs.error ? (
-          <ErrorState onRetry={() => txs.refetch()} />
-        ) : !txs.data || txs.data.length === 0 ? (
-          <EmptyState
-            icon={Activity}
-            title="Sem lançamentos neste ano"
-            description="Adicione seu primeiro lançamento para ver gráficos aqui."
-            action={
-              <Button onClick={() => setCreating(true)}>
-                <Plus className="h-4 w-4" /> Novo lançamento
-              </Button>
-            }
+        ) : dashboard.error ? (
+          <ErrorState onRetry={() => dashboard.refetch()} />
+        ) : data ? (
+          <DashboardContent
+            data={data}
+            onCreateTransaction={() => setCreating(true)}
           />
-        ) : (
-          <div className="space-y-4">
-            <div className="min-w-0">
-              <MonthlyNetChart transactions={txs.data} />
-            </div>
-            <div className="grid min-w-0 gap-4 md:grid-cols-2">
-              <div className="min-w-0">
-                <AccumulatedBalanceChart transactions={txs.data} />
-              </div>
-              <div className="min-w-0">
-                <CategoryBreakdownChart transactions={txs.data} />
-              </div>
-            </div>
-          </div>
-        )}
+        ) : null}
       </div>
 
       {active ? (
@@ -167,31 +188,133 @@ export function DashboardPage() {
   );
 }
 
-function KPICard({ kpi }: { kpi: KPI }) {
-  const Icon = kpi.icon;
-  const tones: Record<KPI["tone"], string> = {
+interface DashboardContentProps {
+  data: DashboardResponse;
+  onCreateTransaction: () => void;
+}
+
+function DashboardContent({ data, onCreateTransaction }: DashboardContentProps) {
+  const { kpis, periodChart, accumulatedChart, categoryBreakdown, granularityNoun } = data;
+  const hasTransactions = kpis.transactionCount > 0;
+
+  const kpiList: KpiCardModel[] = [
+    {
+      label: "Saldo período",
+      kind: "money",
+      value: kpis.netBalance,
+      icon: Wallet,
+      tone: kpis.netBalance >= 0 ? "primary" : "destructive",
+    },
+    {
+      label: `Melhor ${granularityNoun}`,
+      kind: "money",
+      value: kpis.bestBucket?.value ?? 0,
+      subtitle: kpis.bestBucket?.label,
+      icon: Trophy,
+      tone: (kpis.bestBucket?.value ?? 0) >= 0 ? "primary" : "destructive",
+    },
+    {
+      label: "Receitas",
+      kind: "money",
+      value: kpis.income,
+      icon: TrendingUp,
+      tone: "success",
+    },
+    {
+      label: "Despesas",
+      kind: "money",
+      value: kpis.expense,
+      icon: TrendingDown,
+      tone: "destructive",
+    },
+    {
+      label: "Lançamentos",
+      kind: "count",
+      value: kpis.transactionCount,
+      icon: Activity,
+      tone: "muted",
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4">
+        {kpiList.map((kpi, index) => {
+          const mobileSpan = index === 4 ? "col-span-2" : "col-span-1";
+          const desktopSpan = index < 2 ? "md:col-span-3" : "md:col-span-2";
+          return (
+            <div key={kpi.label} className={`${mobileSpan} ${desktopSpan} min-w-0`}>
+              <KpiCard model={kpi} />
+            </div>
+          );
+        })}
+      </section>
+
+      {hasTransactions ? (
+        <div className="space-y-4">
+          <PeriodChart points={periodChart} granularityNoun={granularityNoun} />
+          <div className="grid min-w-0 gap-4 md:grid-cols-2">
+            <AccumulatedChart points={accumulatedChart} granularityNoun={granularityNoun} />
+            <CategoryBreakdownChart points={categoryBreakdown} />
+          </div>
+        </div>
+      ) : (
+        <EmptyState
+          icon={Activity}
+          title="Sem lançamentos no período"
+          description="Adicione um lançamento ou ajuste o período."
+          action={
+            <Button onClick={onCreateTransaction}>
+              <Plus className="h-4 w-4" /> Novo lançamento
+            </Button>
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+type Tone = "primary" | "success" | "destructive" | "muted";
+
+interface KpiCardModel {
+  label: string;
+  value: number;
+  subtitle?: string;
+  kind: "money" | "count";
+  icon: typeof TrendingUp;
+  tone: Tone;
+}
+
+function KpiCard({ model }: { model: KpiCardModel }) {
+  const Icon = model.icon;
+  const tones: Record<Tone, string> = {
     primary: "text-primary",
     success: "text-success",
     destructive: "text-destructive",
     muted: "text-muted-foreground",
   };
-  const display =
-    kpi.label === "Lançamentos" ? String(kpi.count ?? 0) : formatMoney(kpi.value);
+  const display = model.kind === "count" ? String(model.value) : formatMoney(model.value);
+
   return (
-    <Card className="min-w-0">
-      <CardContent className="flex items-start justify-between gap-2 p-3 md:p-4">
+    <Card className="h-full min-w-0">
+      <CardContent className="flex h-full items-start justify-between gap-2 p-3 md:p-4">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground md:text-xs">
-            {kpi.label}
+            {model.label}
           </p>
           <p
-            className={`mt-1 truncate text-base font-semibold tabular-nums md:text-xl ${tones[kpi.tone]}`}
+            className={`mt-1 truncate text-base font-semibold tabular-nums md:text-xl ${tones[model.tone]}`}
           >
             {display}
           </p>
+          {model.subtitle ? (
+            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+              {model.subtitle}
+            </p>
+          ) : null}
         </div>
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted md:h-10 md:w-10 ${tones[kpi.tone]}`}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted md:h-10 md:w-10 ${tones[model.tone]}`}
         >
           <Icon className="h-4 w-4 md:h-5 md:w-5" />
         </div>
@@ -200,55 +323,38 @@ function KPICard({ kpi }: { kpi: KPI }) {
   );
 }
 
-const MONTH_LABEL = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-
-type Tx = {
-  date: string;
-  amount: string | number;
-  categoryId?: string | null;
-  category?: { type?: 1 | 2 } | null;
-};
-
-function MonthlyNetChart({ transactions }: { transactions: Tx[] }) {
-  const data = useMemo(() => {
-    const months = MONTH_LABEL.map((m, i) => ({ month: m, idx: i, income: 0, expense: 0, net: 0 }));
-    for (const t of transactions) {
-      const m = new Date(t.date).getUTCMonth();
-      const amount = toNumber(t.amount);
-      const bucket = months[m];
-      if (!bucket) continue;
-      if (t.category?.type === 1) bucket.income += amount;
-      else bucket.expense += amount;
-      bucket.net = bucket.income - bucket.expense;
-    }
-    return months;
-  }, [transactions]);
-
+function PeriodChart({
+  points,
+  granularityNoun,
+}: {
+  points: PeriodChartPoint[];
+  granularityNoun: string;
+}) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Saldo mensal</CardTitle>
-        <CardDescription>Receitas, despesas e saldo do ano corrente.</CardDescription>
+        <CardTitle>Saldo no período</CardTitle>
+        <CardDescription>Receitas, despesas e saldo por {granularityNoun}.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-64 w-full min-w-0 overflow-hidden">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ left: 8, right: 8, top: 8, bottom: 0 }}>
+            <LineChart data={points} margin={{ left: 8, right: 8, top: 8, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
               <XAxis
-                dataKey="month"
+                dataKey="label"
                 stroke="currentColor"
-                className="text-muted-foreground text-xs"
+                className="text-xs text-muted-foreground"
                 tickLine={false}
                 axisLine={{ stroke: "var(--border)" }}
               />
               <YAxis
                 stroke="currentColor"
-                className="text-muted-foreground text-xs"
+                className="text-xs text-muted-foreground"
                 tickLine={false}
                 axisLine={false}
                 width={60}
-                tickFormatter={(v) => formatMoneyCompact(Number(v))}
+                tickFormatter={(value) => formatMoneyCompact(Number(value))}
               />
               <Tooltip
                 cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
@@ -257,7 +363,7 @@ function MonthlyNetChart({ transactions }: { transactions: Tx[] }) {
                     active={active}
                     payload={payload}
                     label={label}
-                    formatter={(v) => formatMoney(v)}
+                    formatter={(value) => formatMoney(value)}
                   />
                 )}
               />
@@ -273,50 +379,38 @@ function MonthlyNetChart({ transactions }: { transactions: Tx[] }) {
   );
 }
 
-function AccumulatedBalanceChart({ transactions }: { transactions: Tx[] }) {
-  const data = useMemo(() => {
-    const months = MONTH_LABEL.map((m, i) => ({ month: m, idx: i, net: 0, accumulated: 0 }));
-    for (const t of transactions) {
-      const m = new Date(t.date).getUTCMonth();
-      const amount = toNumber(t.amount);
-      const bucket = months[m];
-      if (!bucket) continue;
-      if (t.category?.type === 1) bucket.net += amount;
-      else bucket.net -= amount;
-    }
-    let running = 0;
-    for (const bucket of months) {
-      running += bucket.net;
-      bucket.accumulated = running;
-    }
-    return months;
-  }, [transactions]);
-
+function AccumulatedChart({
+  points,
+  granularityNoun,
+}: {
+  points: AccumulatedChartPoint[];
+  granularityNoun: string;
+}) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Saldo acumulado</CardTitle>
-        <CardDescription>Saldo corrente acumulado mês a mês.</CardDescription>
+        <CardDescription>Saldo corrente acumulado por {granularityNoun}.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-64 w-full min-w-0 overflow-hidden">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ left: 8, right: 8, top: 8, bottom: 0 }}>
+            <BarChart data={points} margin={{ left: 8, right: 8, top: 8, bottom: 0 }}>
               <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
               <XAxis
-                dataKey="month"
+                dataKey="label"
                 stroke="currentColor"
-                className="text-muted-foreground text-xs"
+                className="text-xs text-muted-foreground"
                 tickLine={false}
                 axisLine={{ stroke: "var(--border)" }}
               />
               <YAxis
                 stroke="currentColor"
-                className="text-muted-foreground text-xs"
+                className="text-xs text-muted-foreground"
                 tickLine={false}
                 axisLine={false}
                 width={60}
-                tickFormatter={(v) => formatMoneyCompact(Number(v))}
+                tickFormatter={(value) => formatMoneyCompact(Number(value))}
               />
               <ReferenceLine y={0} stroke="var(--border)" />
               <Tooltip
@@ -326,13 +420,13 @@ function AccumulatedBalanceChart({ transactions }: { transactions: Tx[] }) {
                     active={active}
                     payload={payload}
                     label={label}
-                    formatter={(v) => formatMoney(v)}
+                    formatter={(value) => formatMoney(value)}
                   />
                 )}
               />
               <Bar dataKey="accumulated" name="Saldo acumulado" radius={[6, 6, 0, 0]}>
-                {data.map((row, i) => (
-                  <Cell key={i} fill={row.accumulated >= 0 ? "#22c55e" : "#ef4444"} />
+                {points.map((point, index) => (
+                  <Cell key={index} fill={point.accumulated >= 0 ? "#22c55e" : "#ef4444"} />
                 ))}
               </Bar>
             </BarChart>
@@ -343,66 +437,41 @@ function AccumulatedBalanceChart({ transactions }: { transactions: Tx[] }) {
   );
 }
 
-interface BreakdownRow {
-  name: string;
-  value: number;
-  color: string;
-}
-
-function CategoryBreakdownChart({ transactions }: { transactions: Tx[] }) {
-  const { active } = useWorkspace();
-  const { data: categories = [] } = useCategories(active?.id ?? null);
-
-  const data = useMemo<BreakdownRow[]>(() => {
-    const totals = new Map<string, number>();
-    for (const t of transactions) {
-      if (t.category?.type !== 2) continue;
-      const key = t.categoryId ?? "uncategorized";
-      totals.set(key, (totals.get(key) ?? 0) + toNumber(t.amount));
-    }
-    return Array.from(totals.entries())
-      .map(([id, value]) => {
-        const cat = categories.find((c) => c.id === id);
-        return {
-          name: cat?.name ?? "Sem categoria",
-          value,
-          color: cat?.color ?? "#94a3b8",
-        };
-      })
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
-  }, [transactions, categories]);
-
+function CategoryBreakdownChart({ points }: { points: CategoryBreakdownPoint[] }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Despesas por categoria</CardTitle>
-        <CardDescription>Top 6 categorias do ano.</CardDescription>
+        <CardDescription>Top 6 categorias do período.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-64 w-full">
-          {data.length === 0 ? (
+          {points.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               Sem despesas categorizadas.
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ left: 8, right: 16, top: 8, bottom: 0 }} layout="vertical">
+              <BarChart
+                data={points}
+                margin={{ left: 8, right: 16, top: 8, bottom: 0 }}
+                layout="vertical"
+              >
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" horizontal={false} />
                 <XAxis
                   type="number"
                   stroke="currentColor"
-                  className="text-muted-foreground text-xs"
+                  className="text-xs text-muted-foreground"
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(v) => formatMoneyCompact(Number(v))}
+                  tickFormatter={(value) => formatMoneyCompact(Number(value))}
                 />
                 <YAxis
                   type="category"
                   dataKey="name"
                   width={88}
                   stroke="currentColor"
-                  className="text-muted-foreground text-xs"
+                  className="text-xs text-muted-foreground"
                   tickLine={false}
                   axisLine={false}
                 />
@@ -414,13 +483,13 @@ function CategoryBreakdownChart({ transactions }: { transactions: Tx[] }) {
                       payload={payload}
                       label={label}
                       hideIndicator
-                      formatter={(v) => formatMoney(v)}
+                      formatter={(value) => formatMoney(value)}
                     />
                   )}
                 />
                 <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                  {data.map((row, i) => (
-                    <Cell key={i} fill={row.color} />
+                  {points.map((point, index) => (
+                    <Cell key={index} fill={point.color ?? "#94a3b8"} />
                   ))}
                 </Bar>
               </BarChart>
