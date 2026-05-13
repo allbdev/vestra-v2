@@ -26,7 +26,7 @@ import {
   useUpdateTemplate,
   type TemplateInput,
 } from "../../api/hooks/useTemplates";
-import { useCategories } from "../../api/hooks/useCategories";
+import { CategoryPickerField } from "./CategoryPickerField";
 import { toDateInputValue } from "../../lib/format";
 import { toNumber, type TransactionTemplate } from "../../api/types";
 
@@ -62,7 +62,6 @@ export function TemplateFormSheet({
 }: TemplateFormSheetProps) {
   const create = useCreateTemplate(workspaceId);
   const update = useUpdateTemplate(workspaceId);
-  const { data: categories = [] } = useCategories(workspaceId);
   const isEdit = !!initial;
 
   const {
@@ -170,21 +169,13 @@ export function TemplateFormSheet({
           </FormField>
 
           <FormField label="Categoria" error={errors.categoryId?.message} required>
-            <Select
-              value={categoryId}
-              onValueChange={(v) => setValue("categoryId", v, { shouldValidate: true })}
-            >
-              <SelectTrigger invalid={!!errors.categoryId}>
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CategoryPickerField
+              workspaceId={workspaceId}
+              value={categoryId || null}
+              onValueChange={(v) => setValue("categoryId", v ?? "", { shouldValidate: true })}
+              invalid={!!errors.categoryId}
+              placeholder="Selecione"
+            />
           </FormField>
 
           <FormField label="Frequência" error={errors.frequency?.message} required>

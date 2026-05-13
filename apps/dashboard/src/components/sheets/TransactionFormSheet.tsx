@@ -8,11 +8,6 @@ import {
   FormField,
   Input,
   MoneyInput,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -26,7 +21,7 @@ import {
   useUpdateTransaction,
   type TransactionInput,
 } from "../../api/hooks/useTransactions";
-import { useCategories } from "../../api/hooks/useCategories";
+import { CategoryPickerField } from "./CategoryPickerField";
 import { toDateInputValue } from "../../lib/format";
 import { toNumber as toNum, type Transaction } from "../../api/types";
 
@@ -55,7 +50,6 @@ export function TransactionFormSheet({
 }: TransactionFormSheetProps) {
   const create = useCreateTransaction(workspaceId);
   const update = useUpdateTransaction(workspaceId);
-  const { data: categories = [] } = useCategories(workspaceId);
   const isEdit = !!initial;
 
   const {
@@ -103,7 +97,7 @@ export function TransactionFormSheet({
   }, [open, initial, reset]);
 
   const isPaid = watch("isPaid");
-  const categoryId = watch("categoryId") ?? "";
+  const categoryId = watch("categoryId");
 
   const onSubmit = async (data: FormData) => {
     const payload: TransactionInput = {
@@ -164,36 +158,13 @@ export function TransactionFormSheet({
           </FormField>
 
           <FormField label="Categoria">
-            <Select
-              value={categoryId}
-              onValueChange={(v) => setValue("categoryId", v || null, { shouldValidate: true })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sem categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">
-                    Cadastre categorias primeiro
-                  </div>
-                ) : (
-                  categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="inline-block h-3 w-3 rounded-full"
-                          style={{ backgroundColor: c.color ?? "#94a3b8" }}
-                        />
-                        {c.name}
-                        <span className="text-xs text-muted-foreground">
-                          {c.type === 1 ? "Receita" : "Despesa"}
-                        </span>
-                      </span>
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            <CategoryPickerField
+              workspaceId={workspaceId}
+              value={categoryId ?? null}
+              onValueChange={(v) => setValue("categoryId", v, { shouldValidate: true })}
+              placeholder="Sem categoria"
+              allowEmpty
+            />
           </FormField>
 
           <FormField label="Data" htmlFor="date" error={errors.date?.message} required>

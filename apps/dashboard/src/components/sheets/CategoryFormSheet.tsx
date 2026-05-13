@@ -52,6 +52,8 @@ export interface CategoryFormSheetProps {
   onOpenChange: (open: boolean) => void;
   workspaceId: string;
   initial?: Category | null;
+  onCreated?: (category: Category) => void;
+  defaultType?: 1 | 2;
 }
 
 export function CategoryFormSheet({
@@ -59,6 +61,8 @@ export function CategoryFormSheet({
   onOpenChange,
   workspaceId,
   initial,
+  onCreated,
+  defaultType,
 }: CategoryFormSheetProps) {
   const create = useCreateCategory(workspaceId);
   const update = useUpdateCategory(workspaceId);
@@ -73,7 +77,7 @@ export function CategoryFormSheet({
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: yupResolver(schema) as never,
-    defaultValues: { name: "", type: 2, color: "#22c55e" },
+    defaultValues: { name: "", type: defaultType ?? 2, color: "#22c55e" },
   });
 
   useEffect(() => {
@@ -81,10 +85,10 @@ export function CategoryFormSheet({
       reset(
         initial
           ? { name: initial.name, type: initial.type, color: initial.color ?? "#22c55e" }
-          : { name: "", type: 2, color: "#22c55e" },
+          : { name: "", type: defaultType ?? 2, color: "#22c55e" },
       );
     }
-  }, [open, initial, reset]);
+  }, [open, initial, reset, defaultType]);
 
   const onSubmit = async (data: FormData) => {
     const payload: CategoryInput = {
@@ -97,8 +101,9 @@ export function CategoryFormSheet({
         await update.mutateAsync({ id: initial.id, ...payload });
         toast.success("Categoria atualizada");
       } else {
-        await create.mutateAsync(payload);
+        const created = await create.mutateAsync(payload);
         toast.success("Categoria criada");
+        onCreated?.(created);
       }
       onOpenChange(false);
     } catch {
