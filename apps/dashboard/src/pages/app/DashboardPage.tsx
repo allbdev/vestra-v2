@@ -5,11 +5,7 @@ import {
   Wallet,
   Activity,
   Plus,
-  Trophy,
 } from "lucide-react";
-import { format, getISOWeek, getISOWeekYear } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Frequency } from "@vestra/types";
 import {
   Bar,
   BarChart,
@@ -36,11 +32,6 @@ import {
   ErrorState,
   Fab,
   PageSkeleton,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   TopBar,
 } from "@vestra/ui";
 import { AppNavShell } from "../../components/AppNav";
@@ -56,42 +47,9 @@ import { toNumber } from "../../api/types";
 interface KPI {
   label: string;
   value: number;
-  subtitle?: string;
+  count?: number;
   icon: typeof TrendingUp;
   tone: "primary" | "success" | "destructive" | "muted";
-}
-
-const PERIOD_LABEL: Record<Frequency, string> = {
-  [Frequency.Daily]: "Melhor dia",
-  [Frequency.Weekly]: "Melhor semana",
-  [Frequency.Monthly]: "Melhor mês",
-  [Frequency.Yearly]: "Melhor ano",
-};
-
-function bucketKey(date: Date, period: Frequency): string {
-  switch (period) {
-    case Frequency.Daily:
-      return format(date, "yyyy-MM-dd");
-    case Frequency.Weekly:
-      return `${getISOWeekYear(date)}-W${String(getISOWeek(date)).padStart(2, "0")}`;
-    case Frequency.Monthly:
-      return format(date, "yyyy-MM");
-    case Frequency.Yearly:
-      return format(date, "yyyy");
-  }
-}
-
-function bucketLabel(date: Date, period: Frequency): string {
-  switch (period) {
-    case Frequency.Daily:
-      return format(date, "dd/MM/yyyy", { locale: ptBR });
-    case Frequency.Weekly:
-      return `Sem. ${String(getISOWeek(date)).padStart(2, "0")}/${getISOWeekYear(date)}`;
-    case Frequency.Monthly:
-      return format(date, "MMM yyyy", { locale: ptBR });
-    case Frequency.Yearly:
-      return format(date, "yyyy");
-  }
 }
 
 const today = new Date();
@@ -103,7 +61,6 @@ export function DashboardPage() {
   const { active, workspaces, isLoading: workspacesLoading } = useWorkspace();
   const [creating, setCreating] = useState(false);
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
-  const [periodType, setPeriodType] = useState<Frequency>(Frequency.Monthly);
 
   const txs = useTransactions(active?.id ?? null, { from: yearStart, to: yearEnd });
 
@@ -119,58 +76,17 @@ export function DashboardPage() {
     return { income, expense, net: income - expense, count: list.length };
   }, [txs.data]);
 
-  const bestPeriod = useMemo(() => {
-    const list = txs.data ?? [];
-    if (list.length === 0) return null;
-    const buckets = new Map<string, { net: number; sample: Date }>();
-    for (const t of list) {
-      const d = new Date(t.date);
-      const key = bucketKey(d, periodType);
-      const amount = toNumber(t.amount);
-      const signed = t.category?.type === 1 ? amount : -amount;
-      const b = buckets.get(key);
-      if (b) b.net += signed;
-      else buckets.set(key, { net: signed, sample: d });
-    }
-    let best: { net: number; sample: Date } | null = null;
-    for (const b of buckets.values()) {
-      if (!best || b.net > best.net) best = b;
-    }
-    if (!best) return null;
-    return { value: best.net, label: bucketLabel(best.sample, periodType) };
-  }, [txs.data, periodType]);
-
   const kpis: KPI[] = [
-    {
-      label: PERIOD_LABEL[periodType],
-      value: bestPeriod?.value ?? 0,
-      subtitle: bestPeriod?.label,
-      icon: Trophy,
-      tone: (bestPeriod?.value ?? 0) >= 0 ? "primary" : "destructive",
-    },
-    { label: "Receitas", value: stats.income, icon: TrendingUp, tone: "success" },
-    { label: "Despesas", value: stats.expense, icon: TrendingDown, tone: "destructive" },
     {
       label: "Saldo (ano)",
       value: stats.net,
       icon: Wallet,
       tone: stats.net >= 0 ? "primary" : "destructive",
     },
+    { label: "Receitas", value: stats.income, icon: TrendingUp, tone: "success" },
+    { label: "Despesas", value: stats.expense, icon: TrendingDown, tone: "destructive" },
+    { label: "Lançamentos", value: stats.count, count: stats.count, icon: Activity, tone: "muted" },
   ];
-
-  const periodSelector = (
-    <Select value={String(periodType)} onValueChange={(v) => setPeriodType(Number(v) as Frequency)}>
-      <SelectTrigger className="h-9 w-32" aria-label="Agrupar por">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent align="end">
-        <SelectItem value={String(Frequency.Daily)}>Dia</SelectItem>
-        <SelectItem value={String(Frequency.Weekly)}>Semana</SelectItem>
-        <SelectItem value={String(Frequency.Monthly)}>Mês</SelectItem>
-        <SelectItem value={String(Frequency.Yearly)}>Ano</SelectItem>
-      </SelectContent>
-    </Select>
-  );
 
   return (
     <AppNavShell
@@ -179,7 +95,6 @@ export function DashboardPage() {
           large
           title={`Olá, ${user?.name?.split(" ")[0] ?? ""}`}
           subtitle={active ? active.name : "Selecione um workspace"}
-          trailing={active ? periodSelector : undefined}
         />
       }
     >
@@ -260,6 +175,8 @@ function KPICard({ kpi }: { kpi: KPI }) {
     destructive: "text-destructive",
     muted: "text-muted-foreground",
   };
+  const display =
+    kpi.label === "Lançamentos" ? String(kpi.count ?? 0) : formatMoney(kpi.value);
   return (
     <Card className="min-w-0">
       <CardContent className="flex items-start justify-between gap-2 p-3 md:p-4">
@@ -270,11 +187,8 @@ function KPICard({ kpi }: { kpi: KPI }) {
           <p
             className={`mt-1 truncate text-base font-semibold tabular-nums md:text-xl ${tones[kpi.tone]}`}
           >
-            {formatMoney(kpi.value)}
+            {display}
           </p>
-          {kpi.subtitle ? (
-            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{kpi.subtitle}</p>
-          ) : null}
         </div>
         <div
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted md:h-10 md:w-10 ${tones[kpi.tone]}`}
