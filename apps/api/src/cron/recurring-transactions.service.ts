@@ -73,12 +73,31 @@ export class RecurringTransactionsService {
 
       for (const date of targets) {
         const startOfDay = date.startOf("day").toDate();
-        const endOfDay = date.endOf("day").toDate();
+
+        // Idempotency window = the recurrence period, not the target day.
+        // A user may edit a generated transaction's date inside the same
+        // period (e.g. move a monthly entry from the 10th to the 15th);
+        // re-checking only the original day would miss it and duplicate.
+        let rangeStart: Date;
+        let rangeEnd: Date;
+        if (tpl.frequency === Frequency.Monthly) {
+          rangeStart = date.startOf("month").toDate();
+          rangeEnd = date.endOf("month").toDate();
+        } else if (tpl.frequency === Frequency.Weekly) {
+          rangeStart = date.startOf("week").toDate();
+          rangeEnd = date.endOf("week").toDate();
+        } else if (tpl.frequency === Frequency.Yearly) {
+          rangeStart = date.startOf("year").toDate();
+          rangeEnd = date.endOf("year").toDate();
+        } else {
+          rangeStart = startOfDay;
+          rangeEnd = date.endOf("day").toDate();
+        }
 
         const exists = await this.prisma.transaction.findFirst({
           where: {
             templateId: tpl.id,
-            date: { gte: startOfDay, lte: endOfDay },
+            date: { gte: rangeStart, lte: rangeEnd },
           },
         });
         if (exists) continue;
