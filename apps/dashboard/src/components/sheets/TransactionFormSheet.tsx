@@ -8,6 +8,11 @@ import {
   FormField,
   Input,
   MoneyInput,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -21,8 +26,9 @@ import {
   useUpdateTransaction,
   type TransactionInput,
 } from "../../api/hooks/useTransactions";
+import { useTemplates } from "../../api/hooks/useTemplates";
 import { CategoryPickerField } from "./CategoryPickerField";
-import { toDateInputValue } from "../../lib/format";
+import { formatMoney, toDateInputValue } from "../../lib/format";
 import { toNumber as toNum, type Transaction } from "../../api/types";
 
 const schema = yup.object({
@@ -51,6 +57,8 @@ export function TransactionFormSheet({
   const create = useCreateTransaction(workspaceId);
   const update = useUpdateTransaction(workspaceId);
   const isEdit = !!initial;
+  const { data: templates = [] } = useTemplates(isEdit ? null : workspaceId);
+  const activeTemplates = templates.filter((t) => t.active);
 
   const {
     register,
@@ -99,6 +107,15 @@ export function TransactionFormSheet({
   const isPaid = watch("isPaid");
   const categoryId = watch("categoryId");
 
+  const handleTemplatePick = (templateId: string) => {
+    if (!templateId || templateId === "__blank") return;
+    const t = activeTemplates.find((x) => x.id === templateId);
+    if (!t) return;
+    setValue("description", t.description, { shouldValidate: true });
+    setValue("amount", toNum(t.baseAmount), { shouldValidate: true });
+    setValue("categoryId", t.categoryId ?? null, { shouldValidate: true });
+  };
+
   const onSubmit = async (data: FormData) => {
     const payload: TransactionInput = {
       description: data.description,
@@ -133,6 +150,32 @@ export function TransactionFormSheet({
         </SheetHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4" noValidate>
+          {!isEdit && activeTemplates.length > 0 ? (
+            <FormField label="Preencher com recorrência">
+              <Select
+                value=""
+                onValueChange={handleTemplatePick}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Criar em branco" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__blank">Criar em branco</SelectItem>
+                  {activeTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      <span className="flex items-center gap-2">
+                        {t.description}
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {formatMoney(toNum(t.baseAmount))}
+                        </span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          ) : null}
+
           <FormField label="Descrição" htmlFor="description" error={errors.description?.message} required>
             <Input
               id="description"
