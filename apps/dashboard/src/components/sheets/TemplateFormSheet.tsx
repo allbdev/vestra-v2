@@ -4,6 +4,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import {
   Button,
+  DatePicker,
   FormField,
   Input,
   MoneyInput,
@@ -207,7 +208,18 @@ export function TemplateFormSheet({
           </FormField>
 
           <FormField label="Data inicial" htmlFor="startDate" error={errors.startDate?.message} required>
-            <Input id="startDate" type="date" invalid={!!errors.startDate} {...register("startDate")} />
+            <Controller
+              control={control}
+              name="startDate"
+              render={({ field }) => (
+                <DatePicker
+                  id="startDate"
+                  value={field.value}
+                  onValueChange={(v) => field.onChange(v ?? "")}
+                  invalid={!!errors.startDate}
+                />
+              )}
+            />
           </FormField>
 
           <div className="flex items-center justify-between rounded-lg border border-border p-3">

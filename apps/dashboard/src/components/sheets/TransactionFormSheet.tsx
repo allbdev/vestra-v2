@@ -4,6 +4,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import {
   Button,
+  DatePicker,
   FormField,
   Input,
   MoneyInput,
@@ -196,7 +197,18 @@ export function TransactionFormSheet({
           </FormField>
 
           <FormField label="Data" htmlFor="date" error={errors.date?.message} required>
-            <Input id="date" type="date" invalid={!!errors.date} {...register("date")} />
+            <Controller
+              control={control}
+              name="date"
+              render={({ field }) => (
+                <DatePicker
+                  id="date"
+                  value={field.value}
+                  onValueChange={(v) => field.onChange(v ?? "")}
+                  invalid={!!errors.date}
+                />
+              )}
+            />
           </FormField>
 
           <div className="flex items-center justify-between rounded-lg border border-border p-3">
@@ -217,7 +229,18 @@ export function TransactionFormSheet({
 
           {isPaid ? (
             <FormField label="Pago em" htmlFor="paidAt">
-              <Input id="paidAt" type="date" {...register("paidAt")} />
+              <Controller
+                control={control}
+                name="paidAt"
+                render={({ field }) => (
+                  <DatePicker
+                    id="paidAt"
+                    value={field.value ?? undefined}
+                    onValueChange={(v) => field.onChange(v ?? null)}
+                    canClean
+                  />
+                )}
+              />
             </FormField>
           ) : null}
 

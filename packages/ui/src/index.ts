@@ -123,6 +123,7 @@ export {
   type DateRangePickerProps,
   type DateRange,
 } from "./components/form/DateRangePicker";
+export { DatePicker, type DatePickerProps } from "./components/form/DatePicker";
 
 // Layout
 export { TopBar, type TopBarProps } from "./components/layout/TopBar";
