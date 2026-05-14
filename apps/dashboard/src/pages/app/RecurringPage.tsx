@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Repeat, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import {
   Badge,
@@ -25,6 +25,10 @@ import {
 import { TemplateFormSheet } from "../../components/sheets/TemplateFormSheet";
 import { ConfirmDelete } from "../../components/ConfirmDelete";
 import { useAuth } from "../../auth/AuthProvider";
+import {
+  useCompleteOnboardingStep,
+  useOnboardingStep,
+} from "../../api/hooks/useOnboarding";
 import { formatMoney } from "../../lib/format";
 import { toNumber, type TransactionTemplate } from "../../api/types";
 
@@ -45,6 +49,22 @@ export function RecurringPage() {
   const list = useTemplates(workspaceId || null);
   const update = useUpdateTemplate(workspaceId);
   const del = useDeleteTemplate(workspaceId);
+
+  const onboarding = useOnboardingStep();
+  const completeStep = useCompleteOnboardingStep();
+  const completeMutate = completeStep.mutate;
+  const onboardingStep = onboarding.data;
+  const totalTemplates = list.data?.length ?? 0;
+  useEffect(() => {
+    if (
+      onboardingStep &&
+      !onboardingStep.completed &&
+      onboardingStep.step === 4 &&
+      totalTemplates > 0
+    ) {
+      completeMutate(4);
+    }
+  }, [onboardingStep, totalTemplates, completeMutate]);
 
   return (
     <AppNavShell topBar={<TopBar title="Recorrências" />}>

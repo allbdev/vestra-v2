@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Filter,
@@ -54,6 +54,12 @@ import {
 } from "../../api/hooks/useDashboard";
 import { TransactionFormSheet } from "../../components/sheets/TransactionFormSheet";
 import { WorkspaceCreateSheet } from "../../components/sheets/WorkspaceCreateSheet";
+import { TourPopover } from "../../components/onboarding/TourPopover";
+import { useTourStep } from "../../components/onboarding/useTourStep";
+import {
+  useCompleteOnboardingStep,
+  useOnboardingStep,
+} from "../../api/hooks/useOnboarding";
 import { formatMoney, formatMoneyCompact } from "../../lib/format";
 import { stringParam, useUrlFilters } from "../../lib/useUrlFilters";
 
@@ -96,6 +102,24 @@ export function DashboardPage() {
   }, [values.from, values.to]);
 
   const isCustomRange = !!values.from || !!values.to;
+
+  const step1Tour = useTourStep(1);
+  const step2Tour = useTourStep(2);
+  const onboarding = useOnboardingStep();
+  const onboardingStep = onboarding.data;
+  const completeStep = useCompleteOnboardingStep();
+  const completeMutate = completeStep.mutate;
+  const hasWorkspace = workspaces.length > 0;
+  useEffect(() => {
+    if (
+      onboardingStep &&
+      !onboardingStep.completed &&
+      onboardingStep.step === 1 &&
+      hasWorkspace
+    ) {
+      completeMutate(1);
+    }
+  }, [onboardingStep, hasWorkspace, completeMutate]);
 
   const filterTrigger = (
     <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
@@ -154,9 +178,22 @@ export function DashboardPage() {
             title="Bem-vindo ao Vestra"
             description="Crie seu primeiro workspace para registrar lançamentos."
             action={
-              <Button onClick={() => setCreatingWorkspace(true)}>
-                <Plus className="h-4 w-4" /> Criar workspace
-              </Button>
+              <TourPopover
+                open={step1Tour.active}
+                onClose={step1Tour.dismiss}
+                title="Crie seu workspace para começar"
+                subtitle="Os lançamentos pertencem ao workspace. Crie um para finanças pessoais, da empresa, etc."
+                actionLabel="Criar workspace"
+                onAction={() => {
+                  step1Tour.dismiss();
+                  setCreatingWorkspace(true);
+                }}
+                side="bottom"
+              >
+                <Button onClick={() => setCreatingWorkspace(true)}>
+                  <Plus className="h-4 w-4" /> Criar workspace
+                </Button>
+              </TourPopover>
             }
           />
         ) : !active ? null : dashboard.isLoading ? (
@@ -167,6 +204,8 @@ export function DashboardPage() {
           <DashboardContent
             data={data}
             onCreateTransaction={() => setCreating(true)}
+            step2Tour={step2Tour}
+            onCompleteStep2={() => completeMutate(2)}
           />
         ) : null}
       </div>
@@ -191,9 +230,16 @@ export function DashboardPage() {
 interface DashboardContentProps {
   data: DashboardResponse;
   onCreateTransaction: () => void;
+  step2Tour: { active: boolean; dismiss: () => void };
+  onCompleteStep2: () => void;
 }
 
-function DashboardContent({ data, onCreateTransaction }: DashboardContentProps) {
+function DashboardContent({
+  data,
+  onCreateTransaction,
+  step2Tour,
+  onCompleteStep2,
+}: DashboardContentProps) {
   const { kpis, periodChart, accumulatedChart, categoryBreakdown, granularityNoun } = data;
   const hasTransactions = kpis.transactionCount > 0;
 
@@ -238,17 +284,30 @@ function DashboardContent({ data, onCreateTransaction }: DashboardContentProps) 
 
   return (
     <div className="space-y-6">
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4">
-        {kpiList.map((kpi, index) => {
-          const mobileSpan = index === 4 ? "col-span-2" : "col-span-1";
-          const desktopSpan = index < 2 ? "md:col-span-3" : "md:col-span-2";
-          return (
-            <div key={kpi.label} className={`${mobileSpan} ${desktopSpan} min-w-0`}>
-              <KpiCard model={kpi} />
-            </div>
-          );
-        })}
-      </section>
+      <TourPopover
+        open={step2Tour.active}
+        onClose={step2Tour.dismiss}
+        title="Confira seus indicadores"
+        subtitle="Acompanhe receitas, despesas, saldo e o melhor período do seu workspace."
+        actionLabel="Entendi"
+        onAction={() => {
+          step2Tour.dismiss();
+          onCompleteStep2();
+        }}
+        side="bottom"
+      >
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4">
+          {kpiList.map((kpi, index) => {
+            const mobileSpan = index === 4 ? "col-span-2" : "col-span-1";
+            const desktopSpan = index < 2 ? "md:col-span-3" : "md:col-span-2";
+            return (
+              <div key={kpi.label} className={`${mobileSpan} ${desktopSpan} min-w-0`}>
+                <KpiCard model={kpi} />
+              </div>
+            );
+          })}
+        </section>
+      </TourPopover>
 
       {hasTransactions ? (
         <div className="space-y-4">

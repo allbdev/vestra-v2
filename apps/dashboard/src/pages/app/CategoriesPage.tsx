@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Tags, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import {
   Button,
@@ -22,6 +22,10 @@ import {
 import { CategoryFormSheet } from "../../components/sheets/CategoryFormSheet";
 import { ConfirmDelete } from "../../components/ConfirmDelete";
 import { useAuth } from "../../auth/AuthProvider";
+import {
+  useCompleteOnboardingStep,
+  useOnboardingStep,
+} from "../../api/hooks/useOnboarding";
 import type { Category } from "../../api/types";
 
 export function CategoriesPage() {
@@ -41,6 +45,22 @@ export function CategoriesPage() {
       expenseList: all.filter((c) => c.type === 2),
     };
   }, [list.data]);
+
+  const onboarding = useOnboardingStep();
+  const completeStep = useCompleteOnboardingStep();
+  const completeMutate = completeStep.mutate;
+  const onboardingStep = onboarding.data;
+  const totalCategories = list.data?.length ?? 0;
+  useEffect(() => {
+    if (
+      onboardingStep &&
+      !onboardingStep.completed &&
+      onboardingStep.step === 3 &&
+      totalCategories > 0
+    ) {
+      completeMutate(3);
+    }
+  }, [onboardingStep, totalCategories, completeMutate]);
 
   return (
     <AppNavShell topBar={<TopBar title="Categorias" />}>

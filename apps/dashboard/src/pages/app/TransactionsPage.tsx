@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Plus,
@@ -53,6 +53,10 @@ import { ConfirmDelete } from "../../components/ConfirmDelete";
 import { formatMoney } from "../../lib/format";
 import { useDebouncedValue } from "../../lib/useDebouncedValue";
 import { listParam, stringParam, useUrlFilters } from "../../lib/useUrlFilters";
+import {
+  useCompleteOnboardingStep,
+  useOnboardingStep,
+} from "../../api/hooks/useOnboarding";
 import { toNumber, type Transaction } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 
@@ -142,6 +146,22 @@ export function TransactionsPage() {
   const { data: categories = [] } = useCategories(workspaceId || null);
   const update = useUpdateTransaction(workspaceId);
   const del = useDeleteTransaction(workspaceId);
+
+  const onboarding = useOnboardingStep();
+  const completeStep = useCompleteOnboardingStep();
+  const completeMutate = completeStep.mutate;
+  const onboardingStep = onboarding.data;
+  const totalRows = list.data?.length ?? 0;
+  useEffect(() => {
+    if (
+      onboardingStep &&
+      !onboardingStep.completed &&
+      onboardingStep.step === 5 &&
+      totalRows > 0
+    ) {
+      completeMutate(5);
+    }
+  }, [onboardingStep, totalRows, completeMutate]);
 
   const categoryFilterSet = useMemo(() => new Set(values.categoryIds), [values.categoryIds]);
 

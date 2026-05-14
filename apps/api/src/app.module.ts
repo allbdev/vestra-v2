@@ -11,6 +11,7 @@ import { CategoriesModule } from "./categories/categories.module";
 import { TransactionTemplatesModule } from "./transaction-templates/transaction-templates.module";
 import { TransactionsModule } from "./transactions/transactions.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { OnboardingModule } from "./onboarding/onboarding.module";
 import { PlansModule } from "./plans/plans.module";
 import { ContactModule } from "./contact/contact.module";
 import { CronModule } from "./cron/cron.module";
@@ -31,6 +32,7 @@ import { NotificationsModule } from "./notifications/notifications.module";
     TransactionTemplatesModule,
     TransactionsModule,
     DashboardModule,
+    OnboardingModule,
     PlansModule,
     ContactModule,
     NotificationsModule,

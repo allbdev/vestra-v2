@@ -10,6 +10,7 @@ import * as bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { EmailService } from "../email/email.service";
+import { OnboardingService } from "../onboarding/onboarding.service";
 import type { Response } from "express";
 import { REFRESH_COOKIE } from "./strategies/jwt-refresh.strategy";
 
@@ -29,6 +30,7 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     private email: EmailService,
+    private onboarding: OnboardingService,
   ) {}
 
   private async hashPassword(plain: string) {
@@ -95,6 +97,8 @@ export class AuthService {
       data: { name, email, password: hashed },
       select: { id: true, email: true, name: true },
     });
+
+    await this.onboarding.initialize(user.id);
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     await this.prisma.confirmationCode.create({ data: { email, code } });

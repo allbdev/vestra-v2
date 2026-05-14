@@ -6,16 +6,38 @@ import {
   Settings,
   Inbox,
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AppShell,
   BottomTabBar,
   type BottomTabItem,
   cn,
 } from "@vestra/ui";
-import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { useMyInvites } from "../api/hooks/useInvites";
 import { NotificationBell } from "./NotificationBell";
+import { TourPopover } from "./onboarding/TourPopover";
+import { useTourStep, type TourStepHandle } from "./onboarding/useTourStep";
+
+function useIsDesktop(): boolean {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1024px)");
+    setIsDesktop(mq.matches);
+    const handler = (event: MediaQueryListEvent) => setIsDesktop(event.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isDesktop;
+}
 
 interface TopBarPropsLike {
   trailing?: ReactNode;
@@ -55,6 +77,42 @@ const baseTabs: BottomTabItem[] = [
   { key: "settings", label: "Ajustes", icon: Settings, href: "/settings" },
 ];
 
+interface NavTour {
+  step: number;
+  title: string;
+  subtitle: string;
+  actionLabel: string;
+  href: string;
+  handle: TourStepHandle;
+}
+
+const NAV_TOUR_BY_KEY: Record<string, Omit<NavTour, "handle">> = {
+  categories: {
+    step: 3,
+    title: "Crie sua primeira categoria",
+    subtitle:
+      "As categorias são usadas para identificar e organizar seus lançamentos.",
+    actionLabel: "Ir para Categorias",
+    href: "/categories",
+  },
+  recurring: {
+    step: 4,
+    title: "Crie sua primeira recorrência",
+    subtitle:
+      "Recorrências cadastram lançamentos que se repetem periodicamente.",
+    actionLabel: "Ir para Recorrências",
+    href: "/recurring",
+  },
+  transactions: {
+    step: 5,
+    title: "Confira seus lançamentos",
+    subtitle:
+      "Acompanhe os lançamentos do seu workspace e marque os pagos.",
+    actionLabel: "Ir para Lançamentos",
+    href: "/transactions",
+  },
+};
+
 function activeKey(pathname: string): string {
   if (pathname === "/" || pathname.startsWith("/dashboard")) return "home";
   if (pathname.startsWith("/transactions")) return "transactions";
@@ -65,13 +123,21 @@ function activeKey(pathname: string): string {
   return "home";
 }
 
+interface SidebarProps {
+  active: string;
+  invitesCount: number;
+  navTours: Record<string, NavTour>;
+  onTourAction: (tour: NavTour) => void;
+  enableTours: boolean;
+}
+
 function Sidebar({
   active,
   invitesCount,
-}: {
-  active: string;
-  invitesCount: number;
-}) {
+  navTours,
+  onTourAction,
+  enableTours,
+}: SidebarProps) {
   const sidebarTabs: BottomTabItem[] = [
     ...baseTabs.slice(0, 4),
     {
@@ -89,7 +155,7 @@ function Sidebar({
       {sidebarTabs.map((t) => {
         const Icon = t.icon;
         const isActive = t.key === active;
-        return (
+        const link = (
           <Link
             key={t.key}
             to={t.href!}
@@ -110,6 +176,25 @@ function Sidebar({
             ) : null}
           </Link>
         );
+
+        const tour = navTours[t.key];
+        if (enableTours && tour && tour.handle.active) {
+          return (
+            <TourPopover
+              key={t.key}
+              open
+              onClose={tour.handle.dismiss}
+              title={tour.title}
+              subtitle={tour.subtitle}
+              actionLabel={tour.actionLabel}
+              onAction={() => onTourAction(tour)}
+              side="right"
+            >
+              {link}
+            </TourPopover>
+          );
+        }
+        return link;
       })}
     </nav>
   );
@@ -123,9 +208,26 @@ export function AppNavShell({
   children: ReactNode;
 }) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const active = activeKey(pathname);
   const invites = useMyInvites();
   const pending = invites.data?.length ?? 0;
+  const isDesktop = useIsDesktop();
+
+  const categoriesTour = useTourStep(NAV_TOUR_BY_KEY.categories!.step);
+  const recurringTour = useTourStep(NAV_TOUR_BY_KEY.recurring!.step);
+  const transactionsTour = useTourStep(NAV_TOUR_BY_KEY.transactions!.step);
+
+  const navTours: Record<string, NavTour> = {
+    categories: { ...NAV_TOUR_BY_KEY.categories!, handle: categoriesTour },
+    recurring: { ...NAV_TOUR_BY_KEY.recurring!, handle: recurringTour },
+    transactions: { ...NAV_TOUR_BY_KEY.transactions!, handle: transactionsTour },
+  };
+
+  const handleNavTourAction = (tour: NavTour) => {
+    tour.handle.dismiss();
+    navigate(tour.href);
+  };
 
   // Mobile bottom bar still has 5 slots — show invite count on Settings tab.
   const mobileTabs: BottomTabItem[] = baseTabs.map((t) =>
@@ -134,34 +236,62 @@ export function AppNavShell({
 
   return (
     <AppShell
-      sidebar={<Sidebar active={active} invitesCount={pending} />}
+      sidebar={
+        <Sidebar
+          active={active}
+          invitesCount={pending}
+          navTours={navTours}
+          onTourAction={handleNavTourAction}
+          enableTours={isDesktop}
+        />
+      }
       topBar={withBell(topBar)}
       bottomBar={
         <BottomTabBar
           items={mobileTabs}
           active={active}
-          asLink={(item) => (
-            <Link
-              to={item.href!}
-              className="flex w-full items-stretch"
-              aria-current={item.key === active ? "page" : undefined}
-            >
-              <span
-                className={cn(
-                  "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 min-h-14 text-xs",
-                  item.key === active ? "text-primary" : "text-muted-foreground",
-                )}
+          asLink={(item) => {
+            const link = (
+              <Link
+                to={item.href!}
+                className="flex w-full items-stretch"
+                aria-current={item.key === active ? "page" : undefined}
               >
-                <item.icon className={cn("h-5 w-5", item.key === active && "stroke-[2.5]")} />
-                <span className="text-[11px] font-medium leading-none">{item.label}</span>
-                {item.badge ? (
-                  <span className="absolute right-1/2 top-1 translate-x-3 rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
-                    {item.badge}
-                  </span>
-                ) : null}
-              </span>
-            </Link>
-          )}
+                <span
+                  className={cn(
+                    "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 min-h-14 text-xs",
+                    item.key === active ? "text-primary" : "text-muted-foreground",
+                  )}
+                >
+                  <item.icon className={cn("h-5 w-5", item.key === active && "stroke-[2.5]")} />
+                  <span className="text-[11px] font-medium leading-none">{item.label}</span>
+                  {item.badge ? (
+                    <span className="absolute right-1/2 top-1 translate-x-3 rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </span>
+              </Link>
+            );
+
+            const tour = navTours[item.key];
+            if (!isDesktop && tour && tour.handle.active) {
+              return (
+                <TourPopover
+                  open
+                  onClose={tour.handle.dismiss}
+                  title={tour.title}
+                  subtitle={tour.subtitle}
+                  actionLabel={tour.actionLabel}
+                  onAction={() => handleNavTourAction(tour)}
+                  side="top"
+                >
+                  {link}
+                </TourPopover>
+              );
+            }
+            return link;
+          }}
         />
       }
     >

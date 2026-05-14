@@ -7,11 +7,13 @@ import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { JwtRefreshStrategy } from "./strategies/jwt-refresh.strategy";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
+import { OnboardingModule } from "../onboarding/onboarding.module";
 
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.register({}),
+    OnboardingModule,
   ],
   providers: [
     AuthService,
