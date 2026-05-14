@@ -8,5 +8,6 @@ import { RecurringTransactionsService } from "./recurring-transactions.service";
   imports: [NotificationsModule],
   controllers: [CronController],
   providers: [RecurringTransactionsService, PaymentRemindersService],
+  exports: [RecurringTransactionsService],
 })
 export class CronModule {}

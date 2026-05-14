@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { RecurringTransactionsService } from "../cron/recurring-transactions.service";
 import {
   CreateTransactionTemplateDto,
   UpdateTransactionTemplateDto,
@@ -11,7 +12,10 @@ import {
 
 @Injectable()
 export class TransactionTemplatesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private recurring: RecurringTransactionsService,
+  ) {}
 
   list(workspaceId: string) {
     return this.prisma.transactionTemplate.findMany({
@@ -36,8 +40,8 @@ export class TransactionTemplatesService {
     return row;
   }
 
-  create(workspaceId: string, ownerId: string, dto: CreateTransactionTemplateDto) {
-    return this.prisma.transactionTemplate.create({
+  async create(workspaceId: string, ownerId: string, dto: CreateTransactionTemplateDto) {
+    const template = await this.prisma.transactionTemplate.create({
       data: {
         workspaceId,
         ownerId,
@@ -49,6 +53,12 @@ export class TransactionTemplatesService {
         active: dto.active ?? true,
       },
     });
+
+    if (template.active) {
+      await this.recurring.generateForTemplate(template);
+    }
+
+    return template;
   }
 
   async update(
