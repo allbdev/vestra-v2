@@ -11,6 +11,8 @@ import {
   Users,
   Inbox,
   Copy,
+  Download,
+  Upload,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -46,11 +48,13 @@ import { useWorkspace, type WorkspaceSummary } from "../../workspace/WorkspacePr
 import {
   useCloneWorkspace,
   useDeleteWorkspace,
+  useExportWorkspace,
   useRenameWorkspace,
 } from "../../api/hooks/useWorkspaces";
 import { AxiosError } from "axios";
 import { WorkspaceCreateSheet } from "../../components/sheets/WorkspaceCreateSheet";
 import { WorkspaceMembersSheet } from "../../components/sheets/WorkspaceMembersSheet";
+import { WorkspaceImportSheet } from "../../components/sheets/WorkspaceImportSheet";
 import { ConfirmDelete } from "../../components/ConfirmDelete";
 import { NotificationsSettingsCard } from "../../components/NotificationsSettingsCard";
 import { useMyInvites } from "../../api/hooks/useInvites";
@@ -65,12 +69,23 @@ export function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [renaming, setRenaming] = useState<WorkspaceSummary | null>(null);
   const [deleting, setDeleting] = useState<WorkspaceSummary | null>(null);
   const [managing, setManaging] = useState<WorkspaceSummary | null>(null);
   const renameMut = useRenameWorkspace();
   const deleteMut = useDeleteWorkspace();
   const cloneMut = useCloneWorkspace();
+  const exportMut = useExportWorkspace();
+
+  const handleExport = async (workspace: WorkspaceSummary) => {
+    try {
+      await exportMut.mutateAsync(workspace.id);
+      toast.success(`"${workspace.name}" exportado`);
+    } catch {
+      toast.error("Falha ao exportar workspace");
+    }
+  };
 
   const handleClone = async (workspace: WorkspaceSummary) => {
     try {
@@ -113,11 +128,16 @@ export function SettingsPage() {
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <div>
               <CardTitle>Workspaces</CardTitle>
-              <CardDescription>Crie, renomeie ou exclua.</CardDescription>
+              <CardDescription>Crie, renomeie, exporte ou exclua.</CardDescription>
             </div>
-            <Button onClick={() => setCreating(true)} size="sm">
-              <Plus className="h-4 w-4" /> Novo
-            </Button>
+            <div className="flex shrink-0 gap-2">
+              <Button onClick={() => setImporting(true)} size="sm" variant="outline">
+                <Upload className="h-4 w-4" /> Importar
+              </Button>
+              <Button onClick={() => setCreating(true)} size="sm">
+                <Plus className="h-4 w-4" /> Novo
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-2">
             {workspaces.length === 0 ? (
@@ -154,6 +174,12 @@ export function SettingsPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onSelect={() => setManaging(w)}>
                         <Users className="h-4 w-4" /> Membros
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={exportMut.isPending}
+                        onSelect={() => handleExport(w)}
+                      >
+                        <Download className="h-4 w-4" /> Exportar
                       </DropdownMenuItem>
                       {w.isOwner ? (
                         <>
@@ -238,6 +264,7 @@ export function SettingsPage() {
       </div>
 
       <WorkspaceCreateSheet open={creating} onOpenChange={setCreating} />
+      <WorkspaceImportSheet open={importing} onOpenChange={setImporting} />
       {managing ? (
         <WorkspaceMembersSheet
           open={!!managing}
