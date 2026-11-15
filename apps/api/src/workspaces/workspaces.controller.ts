@@ -13,6 +13,8 @@ import {
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { WorkspacesService } from "./workspaces.service";
 import { CreateWorkspaceDto, UpdateWorkspaceDto } from "./dto/workspace.dto";
+import { ImportWorkspaceDto } from "./dto/workspace-import.dto";
+import { WorkspaceTransferService } from "./workspace-transfer.service";
 import { CurrentUser, RequestUser } from "../common/decorators/current-user.decorator";
 import { WorkspaceMemberGuard } from "../common/guards/workspace-member.guard";
 import { WorkspaceOwnerGuard } from "../common/guards/workspace-owner.guard";
@@ -21,7 +23,10 @@ import { WorkspaceOwnerGuard } from "../common/guards/workspace-owner.guard";
 @ApiTags("workspaces")
 @Controller("workspaces")
 export class WorkspacesController {
-  constructor(private workspaces: WorkspacesService) {}
+  constructor(
+    private workspaces: WorkspacesService,
+    private transfer: WorkspaceTransferService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: RequestUser) {
@@ -31,6 +36,18 @@ export class WorkspacesController {
   @Post()
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateWorkspaceDto) {
     return this.workspaces.create(user.id, dto.name);
+  }
+
+  /** Restore a single-file export into a new workspace owned by the caller. */
+  @Post("import")
+  import(@CurrentUser() user: RequestUser, @Body() dto: ImportWorkspaceDto) {
+    return this.transfer.import(user.id, dto);
+  }
+
+  @UseGuards(WorkspaceMemberGuard)
+  @Get(":id/export")
+  export(@Param("id") id: string) {
+    return this.transfer.export(id);
   }
 
   @UseGuards(WorkspaceMemberGuard)

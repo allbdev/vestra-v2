@@ -49,3 +49,58 @@ export interface NotificationDto {
   readAt: string | null;
   createdAt: string;
 }
+
+// ── Workspace export / import ────────────────────────────────────────────────
+// Single-file JSON snapshot of a workspace. `id` fields are file-local refs
+// (the source DB ids) used only to link rows inside the file — the importer
+// always generates fresh ids. Bump `version` on breaking shape changes.
+
+export const WORKSPACE_EXPORT_FORMAT = "vestra-workspace-export" as const;
+export const WORKSPACE_EXPORT_VERSION = 1 as const;
+
+export interface WorkspaceExportCategory {
+  id: string;
+  name: string;
+  type: CategoryType;
+  color: string | null;
+}
+
+export interface WorkspaceExportTemplate {
+  id: string;
+  categoryId: string | null;
+  description: string;
+  baseAmount: number;
+  frequency: Frequency | null;
+  /** YYYY-MM-DD */
+  startDate: string;
+  active: boolean;
+}
+
+export interface WorkspaceExportTransaction {
+  id: string;
+  categoryId: string | null;
+  templateId: string | null;
+  description: string;
+  amount: number;
+  /** YYYY-MM-DD */
+  date: string;
+  isPaid: boolean;
+  /** ISO timestamp */
+  paidAt: string | null;
+}
+
+export interface WorkspaceExportFile {
+  format: typeof WORKSPACE_EXPORT_FORMAT;
+  version: typeof WORKSPACE_EXPORT_VERSION;
+  /** ISO timestamp */
+  exportedAt: string;
+  workspace: { name: string };
+  categories: WorkspaceExportCategory[];
+  templates: WorkspaceExportTemplate[];
+  transactions: WorkspaceExportTransaction[];
+}
+
+export interface WorkspaceImportResult {
+  workspace: { id: string; name: string };
+  counts: { categories: number; templates: number; transactions: number };
+}
